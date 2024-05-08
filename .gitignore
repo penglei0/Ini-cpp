@@ -1,0 +1,39 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.o
+*.obj
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Cmake Build
+build/*
+build*/*
+
+# IDE
+.vscode/c_cpp_properties.json
+.vscode/launch.json
+
+# Google Test
+bld*
+
+# temp dir
+tmp*
+
+# tag files
+*tags*
