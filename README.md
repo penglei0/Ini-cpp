@@ -2,7 +2,7 @@
 
 This is a header only implementation of the ini file parser in modern C++.
 
-## Build tests
+## Build test
 
 ```bash
 cmake . -B build -DCMAKE_BUILD_TYPE=Release 
@@ -27,10 +27,6 @@ cd build && ctest -C Release --output-on-failure
 
   // float
   settings.SetValue<float>("float.key1", 1.1);
-
-  // bool
-  settings.SetValue<bool>("bool.key1", true);
-  settings.SetValue<bool>("bool.key3", 1);
 
   // get operation
   auto value = settings.GetValue<std::string>("string.key1");
