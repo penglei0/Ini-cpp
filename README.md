@@ -1,3 +1,11 @@
+<div align="center">
+
+[![Ini-cpp pipelines](https://github.com/penglei0/Ini-cpp/actions/workflows/.github.yml/badge.svg)](https://github.com/penglei0/Ini-cpp/actions/workflows/.github.yml)
+
+</div>
+
+---
+
 # Introduction
 
 This is a header only implementation of the ini file parser in modern C++.
