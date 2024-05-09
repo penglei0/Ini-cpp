@@ -25,6 +25,14 @@ using StrStrMap = std::map<std::string, std::string>;
 template <typename T, typename U>
 struct decay_equiv : std::is_same<typename std::decay<T>::type, U>::type {};
 
+template <typename T>
+class DefaultValue {
+ public:
+  T value;
+  // return value by operator ()
+  operator T() const { return value; }
+};
+
 // we only support std::string, int, float, double and bool ...
 template <class T = void>
 using enable_if_supported_type = typename std::enable_if<
@@ -47,7 +55,6 @@ T ConvertValue(const std::string& value, T default_value) {
   if (value.empty()) {
     return default_value;
   }
-
   if constexpr (std::is_same<T, std::string>::value) {
     return value;
   } else if constexpr (std::is_same<T, int>::value) {
@@ -140,11 +147,13 @@ class Settings {
   Settings& operator=(Settings&&) = delete;
 
   // ***********  interfaces ***********
+  const char* GetFullPath() const { return IniFullPath; }
   template <typename T, typename... Types, enable_if_supported_type<T> = 0>
-  T GetValue(const std::string& fmt, Types&&... args);
+  T GetValue(const std::string& fmt, Types&&... args,
+             DefaultValue<T> defaultValue);
 
   template <typename T, enable_if_supported_type<T> = 0>
-  T GetValue(const std::string& key, T default_value);
+  T GetValue(const std::string& key, T default_value = T());
   /**
    * @brief Save/change the `value` to the `key` to the `ini` file.
    *
@@ -162,14 +171,14 @@ class Settings {
   // ***********  implementation ***********
   void WriteIni(std::basic_ostream<char>& stream,
                 const StrStrMap& ini_content_tbl);
-
   void ReadIni(std::basic_istream<char>& stream, StrStrMap& ini_content_tbl);
 };
 
 template <const char* IniFullPath>
 template <typename T, typename... Types, enable_if_supported_type<T>>
-T Settings<IniFullPath>::GetValue(const std::string& fmt, Types&&... args) {
-  T v;
+T Settings<IniFullPath>::GetValue(const std::string& fmt, Types&&... args,
+                                  DefaultValue<T> defaultValue) {
+  throw std::runtime_error("Not implemented yet");
   std::basic_ifstream<char> stream(IniFullPath,
                                    std::ios_base::out | std::ios_base::app);
   if (!stream) {
@@ -182,16 +191,16 @@ T Settings<IniFullPath>::GetValue(const std::string& fmt, Types&&... args) {
   // Read all the key-value pairs from the ini file
   ReadIni(stream, kv_table);
 
-  size_t args_size =
-      snprintf(nullptr, 0, fmt.c_str(), std::forward<Types>(args)...) +
-      1;  // Extra space for '\0'
+  size_t args_size = snprintf(nullptr, 0, fmt.c_str(),
+                              std::forward<Types>(args)...) +
+                     1;  // Extra space for '\0'
   std::unique_ptr<char[]> args_buf(new char[args_size]);
   snprintf(args_buf.get(), args_size, fmt.c_str(),
            std::forward<Types>(args)...);
   std::string key(args_buf.get(), args_buf.get() + args_size - 1);
   // FIXME(.): error: ‘v’ may be used uninitialized in this function
   // [-Werror=maybe-uninitialized]
-  return ConvertValue(kv_table[key], v);
+  return ConvertValue(kv_table[key], defaultValue);
 }
 
 template <const char* IniFullPath>
@@ -209,7 +218,6 @@ T Settings<IniFullPath>::GetValue(const std::string& key, T default_value) {
 
   // Read all the key-value pairs from the ini file
   ReadIni(stream, kv_table);
-
   return ConvertValue(kv_table[key], default_value);
 }
 

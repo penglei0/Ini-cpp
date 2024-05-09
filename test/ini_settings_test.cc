@@ -7,7 +7,7 @@
 constexpr const char ini_file_1[] = "/tmp/ini_settings_test_1.ini";
 constexpr const char ini_file_2[] = "/tmp/ini_settings_test_2.ini";
 
-constexpr const char path[] = "/etc/cfg/my_settings.ini";
+constexpr const char path[] = "/tmp/my_settings.ini";
 using MySettings = Settings<path>;
 
 using IniSettings1 = Settings<ini_file_1>;
@@ -70,9 +70,29 @@ TEST(IniSettings, write_read_test) {
   EXPECT_EQ(settings.GetValue<bool>("bool.key1"), true);
   EXPECT_EQ(settings.GetValue<bool>("bool.key2"), false);
   EXPECT_EQ(settings.GetValue<bool>("bool.key3"), true);
+
+  // formatting read string.key%d
+  /**
+  for (int i = 1; i <= 3; ++i) {
+    std::string fmt("string.key%d");
+    EXPECT_EQ(
+        settings.GetValue<std::string>(
+            fmt, i, DefaultValue<std::string>{std::string("default_str")}),
+        "value1");
+  }
+  */
 }
 
-TEST(IniSettings, abnormal_write_test) { EXPECT_FALSE(false); }
+TEST(IniSettings, abnormal_write_test) {
+  // no section name
+  EXPECT_EQ(MySettings::GetInstance().GetValue<std::string>("key1", "default"),
+            "default");
+  // invalid write
+  MySettings::GetInstance().SetValue<std::string>("key1", "value1");
+  // MySettings::GetInstance().SetValue<std::string>("section_name.key1.key2.",
+  //                                                "value1");
+  DumpFileContent(MySettings::GetInstance().GetFullPath());
+}
 
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
