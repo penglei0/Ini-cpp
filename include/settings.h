@@ -6,6 +6,9 @@
  * @date 2024-05-08
  *
  */
+#ifndef INCLUDE_SETTINGS_H_
+#define INCLUDE_SETTINGS_H_
+
 #include <cstdarg>
 #include <fstream>
 #include <iostream>
@@ -377,3 +380,5 @@ void Settings<IniFullPath>::ReadIni(std::basic_istream<char>& stream,
     }
   }
 }
+
+#endif  // INCLUDE_SETTINGS_H_
