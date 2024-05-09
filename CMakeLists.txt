@@ -94,8 +94,11 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 # ini_settings_test
 add_executable(ini_settings_test test/ini_settings_test.cc)
 target_link_libraries(ini_settings_test gtest_main gmock_main)
-# gtest_discover_tests(ini_settings_test)
+gtest_discover_tests(ini_settings_test)
 
-# Add the test command with custom arguments
-add_test(NAME ini_settings_test COMMAND ini_settings_test
-                                        ${CMAKE_SOURCE_DIR}/test/)
+# Add the test command with custom arguments add_test(NAME ini_settings_test
+# COMMAND ini_settings_test ${CMAKE_SOURCE_DIR}/test/)
+
+add_executable(ini_util_func_test test/ini_util_func_test.cc)
+target_link_libraries(ini_util_func_test gtest_main gmock_main)
+gtest_discover_tests(ini_util_func_test)
