@@ -20,10 +20,26 @@ cmake --build build
 cd build && ctest -C Release --output-on-failure
 ```
 
+## Use it in CMake project
+
+Add the following code in your CMakeLists.txt file.
+
+```cmake
+FetchContent_Declare(
+  Ini-cpp
+  GIT_REPOSITORY git@github.com:penglei0/Ini-cpp.git
+  GIT_TAG v1.0.0)
+FetchContent_MakeAvailable(Ini-cpp)
+message("Ini_cpp source directory is :" ${Ini-cpp_SOURCE_DIR})
+message("Ini_cpp binary directory is :" ${Ini-cpp_BINARY_DIR})
+include_directories(${Ini-cpp_SOURCE_DIR}/include)
+
+```
+
 ## Example cpp code
 
 ```cpp
-  #include "settings.h"
+  #include <settings.h>
   constexpr const char path[] = "/etc/cfg/my_settings.ini";
   using MySettings = Settings<path>;
 
