@@ -28,7 +28,7 @@ message(STATUS "Host System name: ${CMAKE_HOST_SYSTEM_NAME}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
 # Set build-specific compiler flags
-set(CMAKE_NO_WARN_LIST " -Wno-format-security -Wno-maybe-uninitialized")
+set(CMAKE_NO_WARN_LIST " ")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -g -O3")
 set(CMAKE_CXX_FLAGS_RELEASE

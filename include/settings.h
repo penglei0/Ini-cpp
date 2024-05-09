@@ -204,15 +204,17 @@ T Settings<IniFullPath>::GetValue2(T default_value, const std::string& fmt,
   // Read all the key-value pairs from the ini file
   ReadIni(stream, kv_table);
 
-  size_t args_size = snprintf(nullptr, 0, fmt.c_str(),
-                              std::forward<Types>(args)...) +
-                     1;  // Extra space for '\0'
-  std::unique_ptr<char[]> args_buf(new char[args_size]);
-  snprintf(args_buf.get(), args_size, fmt.c_str(),
-           std::forward<Types>(args)...);
-  std::string key(args_buf.get(), args_buf.get() + args_size - 1);
-  // FIXME(.): error: ‘v’ may be used uninitialized in this function
-  // [-Werror=maybe-uninitialized],
+  auto formatString = [](const std::string& __fmt, auto&&... __args) {
+    size_t args_size = snprintf(nullptr, 0, __fmt.c_str(),
+                                std::forward<decltype(__args)>(__args)...) +
+                       1;
+    std::unique_ptr<char[]> args_buf(new char[args_size]);
+    snprintf(args_buf.get(), args_size, __fmt.c_str(),
+             std::forward<decltype(__args)>(__args)...);
+    return std::string(args_buf.get(), args_buf.get() + args_size - 1);
+  };
+
+  std::string key = formatString(fmt, std::forward<Types>(args)...);
   return ConvertValue(kv_table[key], default_value);
 }
 
