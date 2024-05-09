@@ -23,24 +23,15 @@ using Ch = char;
 using StrStrMap = std::map<std::string, std::string>;
 
 template <typename T, typename U>
-struct decay_equiv : std::is_same<typename std::decay<T>::type, U>::type {};
-
-template <typename T>
-class DefaultValue {
- public:
-  T value;
-  // return value by operator ()
-  operator T() const { return value; }
-};
+struct is_decay_equiv : std::is_same<typename std::decay<T>::type, U>::type {};
 
 // we only support std::string, int, float, double and bool ...
 template <class T = void>
 using enable_if_supported_type = typename std::enable_if<
-    decay_equiv<T, std::string>::value || decay_equiv<T, int>::value ||
-        decay_equiv<T, float>::value || decay_equiv<T, double>::value ||
-        decay_equiv<T, bool>::value,
+    is_decay_equiv<T, std::string>::value || is_decay_equiv<T, int>::value ||
+        is_decay_equiv<T, float>::value || is_decay_equiv<T, double>::value ||
+        is_decay_equiv<T, bool>::value,
     bool>::type;
-
 /**
  * @brief Return the value by the type of `T`. if the value is empty, return the
  * `default_value`
@@ -147,11 +138,34 @@ class Settings {
   Settings& operator=(Settings&&) = delete;
 
   // ***********  interfaces ***********
-  const char* GetFullPath() const { return IniFullPath; }
+  /**
+   * @brief Return the full path of the `ini` file.
+   *
+   * @return const char*
+   */
+  std::string GetFullPath() const { return IniFullPath; }
+  /**
+   * @brief Get the value of the `key` from the `ini` file. If the `key` doesn't
+   * exist, return the `default_value`.
+   *
+   * @tparam T The type of the value.
+   * @tparam Types The type of the format string.
+   * @param default_value The default value if the `key` doesn't exist.
+   * @param fmt The format string to get the string of the key.
+   * @param args The arguments of the format string.
+   * @return T
+   */
   template <typename T, typename... Types, enable_if_supported_type<T> = 0>
-  T GetValue(const std::string& fmt, Types&&... args,
-             DefaultValue<T> defaultValue);
-
+  T GetValue2(T default_value, const std::string& fmt, Types&&... args);
+  /**
+   * @brief Get the value of the `key` from the `ini` file. If the `key` doesn't
+   * exist, return the `default_value`.
+   *
+   * @tparam T
+   * @param key
+   * @param default_value
+   * @return T
+   */
   template <typename T, enable_if_supported_type<T> = 0>
   T GetValue(const std::string& key, T default_value = T());
   /**
@@ -176,9 +190,8 @@ class Settings {
 
 template <const char* IniFullPath>
 template <typename T, typename... Types, enable_if_supported_type<T>>
-T Settings<IniFullPath>::GetValue(const std::string& fmt, Types&&... args,
-                                  DefaultValue<T> defaultValue) {
-  throw std::runtime_error("Not implemented yet");
+T Settings<IniFullPath>::GetValue2(T default_value, const std::string& fmt,
+                                   Types&&... args) {
   std::basic_ifstream<char> stream(IniFullPath,
                                    std::ios_base::out | std::ios_base::app);
   if (!stream) {
@@ -199,8 +212,8 @@ T Settings<IniFullPath>::GetValue(const std::string& fmt, Types&&... args,
            std::forward<Types>(args)...);
   std::string key(args_buf.get(), args_buf.get() + args_size - 1);
   // FIXME(.): error: ‘v’ may be used uninitialized in this function
-  // [-Werror=maybe-uninitialized]
-  return ConvertValue(kv_table[key], defaultValue);
+  // [-Werror=maybe-uninitialized],
+  return ConvertValue(kv_table[key], default_value);
 }
 
 template <const char* IniFullPath>

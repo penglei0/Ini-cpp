@@ -55,16 +55,22 @@ TEST(IniSettings, write_read_test) {
   EXPECT_EQ(settings.GetValue<std::string>("string.key1"), "value1");
   EXPECT_EQ(settings.GetValue<std::string>("string.key2"), "value2");
   EXPECT_EQ(settings.GetValue<std::string>("string.key3"), "value3");
+  // not exist
+  EXPECT_EQ(settings.GetValue<std::string>("string.key4"), "");
 
   // int
   EXPECT_EQ(settings.GetValue<int>("int.key1"), 1);
   EXPECT_EQ(settings.GetValue<int>("int.key2"), 2);
   EXPECT_EQ(settings.GetValue<int>("int.key3"), 3);
+  // not exist
+  EXPECT_EQ(settings.GetValue<int>("int.key4"), 0);
 
   // float
   EXPECT_FLOAT_EQ(settings.GetValue<float>("float.key1"), 1.1);
   EXPECT_FLOAT_EQ(settings.GetValue<float>("float.key2"), 2.2);
   EXPECT_FLOAT_EQ(settings.GetValue<float>("float.key3"), 3.3);
+  // not exist
+  EXPECT_FLOAT_EQ(settings.GetValue<float>("float.key4"), 0.0);
 
   // bool
   EXPECT_EQ(settings.GetValue<bool>("bool.key1"), true);
@@ -72,15 +78,16 @@ TEST(IniSettings, write_read_test) {
   EXPECT_EQ(settings.GetValue<bool>("bool.key3"), true);
 
   // formatting read string.key%d
-  /**
   for (int i = 1; i <= 3; ++i) {
-    std::string fmt("string.key%d");
-    EXPECT_EQ(
-        settings.GetValue<std::string>(
-            fmt, i, DefaultValue<std::string>{std::string("default_str")}),
-        "value1");
+    std::string results = "value";
+    results += std::to_string(i);
+    EXPECT_EQ(settings.GetValue2<std::string>("default_str", "string.key%d", i),
+              results);
   }
-  */
+  // calling none-format version
+  auto res = settings.GetValue<std::string>("string.key10", "default_value");
+  EXPECT_EQ(res, "default_value");
+  res = settings.GetValue2<std::string>("default_str", "%s10", "string.key");
 }
 
 TEST(IniSettings, abnormal_write_test) {
@@ -89,8 +96,6 @@ TEST(IniSettings, abnormal_write_test) {
             "default");
   // invalid write
   MySettings::GetInstance().SetValue<std::string>("key1", "value1");
-  // MySettings::GetInstance().SetValue<std::string>("section_name.key1.key2.",
-  //                                                "value1");
   DumpFileContent(MySettings::GetInstance().GetFullPath());
 }
 
