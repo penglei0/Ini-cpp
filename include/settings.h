@@ -89,23 +89,32 @@ Str Trim(const Str& s, const std::locale& loc = std::locale()) {
   }
 }
 
+/**
+ * @brief Split the string `str` with the `pattern`.
+ *
+ * @param str
+ * @param pattern
+ * @return std::vector<std::string>
+ */
 inline std::vector<std::string> Split(const std::string& str,
                                       const std::string& pattern) {
-  std::vector<std::string> resStr;
-  if ("" == str) {
-    return resStr;
+  std::vector<std::string> result;
+  if (str.empty()) {
+    return result;
   }
-  std::string strs = str + pattern;
-  size_t pos = strs.find(pattern);
-  size_t size = strs.size();
-
-  while (pos != std::string::npos) {
-    std::string x = strs.substr(0, pos);
-    resStr.push_back(x);
-    strs = strs.substr(pos + 1, size);
-    pos = strs.find(pattern);
+  size_t start = 0;
+  size_t index = str.find_first_of(pattern, start);
+  while (index != std::string::npos) {
+    if (index != start) {
+      result.push_back(str.substr(start, index - start));
+    }
+    start = index + 1;
+    index = str.find_first_of(pattern, start);
   }
-  return resStr;
+  if (!str.substr(start).empty()) {
+    result.push_back(str.substr(start));
+  }
+  return result;
 }
 
 /**
