@@ -1,6 +1,7 @@
 <div align="center">
 
 [![Ini-cpp pipelines](https://github.com/penglei0/Ini-cpp/actions/workflows/.github.yml/badge.svg)](https://github.com/penglei0/Ini-cpp/actions/workflows/.github.yml)
+[![Ini-cpp CodeQL](https://github.com/penglei0/Ini-cpp/actions/workflows/codeql.github.yml/badge.svg)](https://github.com/penglei0/Ini-cpp/actions/workflows/codeql.github.yml)
 
 </div>
 
@@ -38,7 +39,7 @@ cd build && ctest -C Release --output-on-failure
 
   // get operation with default value.
   value = settings.GetValue<std::string>("string.key1", "default_value");
-  
+
   // get operation with format args. `GetValue2` version.
   value = settings.GetValue2<std::string>("default_value", "%s%d", "string.key",1);
 ```
