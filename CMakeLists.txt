@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(Ini-cpp)
+project(
+  Ini-cpp
+  VERSION 1.0.0
+  LANGUAGES CXX)
 
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
   message(
@@ -90,6 +93,19 @@ set(CTEST_OUTPUT_ON_FAILURE true)
 set(GTEST_COLOR true)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+add_library(Ini-cpp INTERFACE)
+target_include_directories(
+  Ini-cpp INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                    $<INSTALL_INTERFACE:include>)
+target_compile_features(Ini-cpp INTERFACE cxx_std_17)
+install(
+  TARGETS Ini-cpp
+  EXPORT Ini-cpp
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ DESTINATION include)
 
 # ini_settings_test
 add_executable(ini_settings_test test/ini_settings_test.cc)
