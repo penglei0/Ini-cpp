@@ -10,6 +10,7 @@
 #define INCLUDE_SETTINGS_H_
 
 #include <cstdarg>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -189,15 +190,23 @@ class Settings {
   void WriteIni(std::basic_ostream<char>& stream,
                 const StrStrMap& ini_content_tbl);
   void ReadIni(std::basic_istream<char>& stream, StrStrMap& ini_content_tbl);
+  // protect read/write
+  std::mutex rw_mutex_;
 };
 
 template <const char* IniFullPath>
 template <typename T, typename... Types, enable_if_supported_type<T>>
 T Settings<IniFullPath>::GetValue2(T default_value, const std::string& fmt,
                                    Types&&... args) {
+  // lock rw_mutex_
+  std::lock_guard<std::mutex> lock(rw_mutex_);
+  if (!std::filesystem::exists(IniFullPath)) {
+    return default_value;
+  }
   std::basic_ifstream<char> stream(IniFullPath,
                                    std::ios_base::out | std::ios_base::app);
   if (!stream) {
+    // maybe permission denied
     std::string err_msg = IniFullPath;
     err_msg += " open failed";
     throw std::runtime_error(err_msg);
@@ -224,9 +233,14 @@ T Settings<IniFullPath>::GetValue2(T default_value, const std::string& fmt,
 template <const char* IniFullPath>
 template <typename T, enable_if_supported_type<T>>
 T Settings<IniFullPath>::GetValue(const std::string& key, T default_value) {
+  std::lock_guard<std::mutex> lock(rw_mutex_);
+  if (!std::filesystem::exists(IniFullPath)) {
+    return default_value;
+  }
   std::basic_ifstream<char> stream(IniFullPath,
                                    std::ios_base::out | std::ios_base::app);
   if (!stream) {
+    // maybe permission denied
     std::string err_msg = IniFullPath;
     err_msg += " open failed";
     throw std::runtime_error(err_msg);
@@ -242,11 +256,38 @@ T Settings<IniFullPath>::GetValue(const std::string& key, T default_value) {
 template <const char* IniFullPath>
 template <typename T, enable_if_supported_type<T>>
 void Settings<IniFullPath>::SetValue(const std::string& key, T value) {
+  std::lock_guard<std::mutex> lock(rw_mutex_);
+  if (!std::filesystem::exists(IniFullPath)) {
+    std::cout << IniFullPath << " doesn't exist, create a new one."
+              << std::endl;
+    auto parent_path = std::filesystem::path(IniFullPath).parent_path();
+    if (!std::filesystem::exists(parent_path)) {
+      std::cout << "Create directory: " << parent_path << std::endl;
+      if (!std::filesystem::create_directories(parent_path)) {
+        // maybe permission denied
+        throw std::runtime_error("File create failed");
+      }
+    }
+    auto create_file = [](const std::string& path) -> bool {
+      std::ofstream file(path);
+      if (!file) {
+        return false;
+      }
+      return true;
+    };
+    if (!create_file(IniFullPath)) {
+      // maybe permission denied
+      throw std::runtime_error("File create failed");
+    }
+    std::cout << "Create regular file: " << IniFullPath << std::endl;
+  }
+
   StrStrMap kv_table;
   {
     std::basic_ifstream<char> stream(IniFullPath,
                                      std::ios_base::out | std::ios_base::app);
     if (!stream) {
+      // maybe permission denied
       std::string err_msg = IniFullPath;
       err_msg += " open failed";
       throw std::runtime_error(err_msg);
