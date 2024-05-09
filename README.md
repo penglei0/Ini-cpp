@@ -30,13 +30,15 @@ cd build && ctest -C Release --output-on-failure
   // string
   settings.SetValue<std::string>("string.key1", "value1");
 
-  // int
-  settings.SetValue<int>("int.key1", 1);
-
   // float
   settings.SetValue<float>("float.key1", 1.1);
 
-  // get operation
+  // get operation with no default value.
   auto value = settings.GetValue<std::string>("string.key1");
 
+  // get operation with default value.
+  value = settings.GetValue<std::string>("string.key1", "default_value");
+
+  // get operation with format args.
+   value = settings.GetValue<std::string>("default_value", "%s%d", "string.key",1);
 ```

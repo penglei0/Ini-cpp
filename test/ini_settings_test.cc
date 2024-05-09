@@ -88,6 +88,11 @@ TEST(IniSettings, write_read_test) {
   auto res = settings.GetValue<std::string>("string.key10", "default_value");
   EXPECT_EQ(res, "default_value");
   res = settings.GetValue2<std::string>("default_str", "%s10", "string.key");
+
+  // multiple args
+  res =
+      settings.GetValue2<std::string>("default_value", "%s%d", "string.key", 1);
+  EXPECT_EQ(res, "value1");
 }
 
 TEST(IniSettings, abnormal_write_test) {
