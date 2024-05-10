@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
 #include <filesystem>
+#include <thread>
 
 #include "settings.h"
 
@@ -134,6 +137,83 @@ TEST(IniSettings, abnormal_write_test) {
             "default");
   // invalid write
   MySettings::GetInstance().SetValue<std::string>("key1", "value1");
+  DumpFileContent(MySettings::GetInstance().GetFullPath());
+}
+
+TEST(IniSettings, multithread_rw_test) {
+  auto& settings = IniSettings1::GetInstance();
+  EXPECT_EQ(settings.GetValue<std::string>("string.key1", "value1"), "value1");
+  settings.SetValue<std::string>("string.key1", "value2");
+  EXPECT_EQ(settings.GetValue<std::string>("string.key1", "value1"), "value2");
+  EXPECT_EQ(settings.GetValue<std::string>("string.key1", "value1"), "value2");
+  EXPECT_EQ(settings.GetValue<std::string>("string.key1", "value1"), "value2");
+  std::atomic<bool> is_ready = {false};
+  std::thread read_thread = std::thread([&settings, &is_ready]() {
+    while (!is_ready.load()) {
+      std::this_thread::yield();
+    }
+    for (int i = 0; i < 3000; ++i) {
+      auto res = settings.GetValue<std::string>("string.key1", "value1");
+      EXPECT_TRUE(res == "value2" || res == "value3");
+    }
+  });
+
+  std::thread write_thread = std::thread([&settings, &is_ready]() {
+    is_ready.store(true);
+    for (int i = 0; i < 3000; ++i) {
+      settings.SetValue<std::string>("string.key1", "value3");
+    }
+  });
+
+  read_thread.join();
+  write_thread.join();
+
+  // add space to `ini_file_1` by executing bash cmd echo " " > ini_file_1
+  std::string cmd = "echo \" \" > ";
+  cmd += ini_file_1;
+
+  system(cmd.c_str());
+
+  auto res = settings.GetValue<std::string>("string.key1", "value1");
+  EXPECT_TRUE(res == "value3");
+
+  std::filesystem::remove(ini_file_1);
+  // it will not use the cache.
+  EXPECT_EQ(settings.GetValue<std::string>("string.key1", "delete"), "delete");
+}
+
+TEST(IniSettings, multithread_www_test) {
+  constexpr const char ini_file_11[] = "/tmp/ini_settings_test_11.ini";
+  auto& settings = MySettings::GetInstance();
+  settings.GetValue<std::string>("string.key1", "value1");
+  std::vector<std::thread> threads;
+  std::atomic<bool> is_ready = {false};
+  for (int i = 0; i < 10; ++i) {
+    threads.emplace_back([&settings, &is_ready, i]() {
+      if (i == 9) {
+        is_ready.store(true);
+      }
+      while (!is_ready.load()) {
+        std::this_thread::yield();
+      }
+      std::string thread_value_str = "value";
+      thread_value_str += std::to_string(i + 10);
+      for (int c = 0; c < 3000; ++c) {
+        settings.SetValue<std::string>("string.key1", thread_value_str);
+      }
+    });
+  }
+
+  for (auto& t : threads) {
+    t.join();
+  }
+
+  auto res = settings.GetValue<std::string>("string.key1", "value1");
+  std::cout << res << std::endl;
+  EXPECT_TRUE(res == "value10" || res == "value11" || res == "value12" ||
+              res == "value13" || res == "value14" || res == "value15" ||
+              res == "value16" || res == "value17" || res == "value18" ||
+              res == "value19");
   DumpFileContent(MySettings::GetInstance().GetFullPath());
 }
 

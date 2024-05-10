@@ -181,13 +181,10 @@ class Settings {
    */
   template <typename T, enable_if_supported_type<T> = 0>
   void SetValue(const std::string& key, T value);
+  int LoadedCnt() const { return loaded_cnt_; }
 
  private:
-  Settings() {
-    if (std::filesystem::exists(IniFullPath)) {
-      last_write_time_ = std::filesystem::last_write_time(IniFullPath);
-    }
-  }
+  Settings() = default;
   virtual ~Settings() = default;
 
   // ***********  implementation ***********
@@ -201,6 +198,7 @@ class Settings {
   StrStrMap content_tbl_;
   std::filesystem::file_time_type last_write_time_;
   // stored in memory, and write back to the ini file when SetValue is called.
+  int loaded_cnt_ = 0;
 };
 
 template <const char* IniFullPath>
@@ -213,6 +211,7 @@ bool Settings<IniFullPath>::LoadContentTbl() {
   stream.imbue(std::locale());
   // Read all the key-value pairs from the ini file
   ReadIni(stream, content_tbl_);
+  loaded_cnt_++;
   return true;
 }
 
