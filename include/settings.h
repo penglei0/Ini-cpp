@@ -328,6 +328,7 @@ void Settings<IniFullPath>::WriteIni(std::basic_ostream<char>& stream,
     auto combined_key_vec = Split(combined_key, ".");
     if (combined_key_vec.size() < 2) {
       // no section or key: invalid data
+      // std::cerr << "Invalid data: " << combined_key << std::endl;
       break;
     }
     auto& section_name = combined_key_vec[0];

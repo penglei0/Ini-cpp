@@ -1,11 +1,14 @@
 #include <gtest/gtest.h>
 
+#include <filesystem>
+
 #include "settings.h"
 
 // it has a unique address across all translation units, and can be used as a
 // non-type template argument.
 constexpr const char ini_file_1[] = "/tmp/ini_settings_test_1.ini";
-
+constexpr const char none_exists_ini_file[] =
+    "/tmp/ini_settings_test_none_exists.ini";
 constexpr const char my_ini_path[] = "/tmp/my_settings.ini";
 using MySettings = Settings<my_ini_path>;
 
@@ -22,6 +25,38 @@ void DumpFileContent(const std::string& file) {
   while (std::getline(ifs, line)) {
     std::cout << line << std::endl;
   }
+}
+
+TEST(IniSettings, read_none_exists_file) {
+  using IniSettings2 = Settings<none_exists_ini_file>;
+  // check exist
+  if (std::filesystem::exists(none_exists_ini_file)) {
+    std::filesystem::remove(none_exists_ini_file);
+  }
+  // read
+  EXPECT_EQ(
+      IniSettings2::GetInstance().GetValue<std::string>("main.key1", "default"),
+      "default");
+  std::filesystem::remove(none_exists_ini_file);
+}
+
+TEST(IniSettings, write_none_exists_file) {
+  using IniSettings2 = Settings<none_exists_ini_file>;
+  // check exist
+  if (std::filesystem::exists(none_exists_ini_file)) {
+    std::filesystem::remove(none_exists_ini_file);
+  }
+  // invalid write since no section name
+  IniSettings2::GetInstance().SetValue<std::string>("key1", "value1");
+  EXPECT_TRUE(std::filesystem::exists(none_exists_ini_file));
+  EXPECT_EQ(std::filesystem::file_size(none_exists_ini_file), 0);
+
+  IniSettings2::GetInstance().SetValue<std::string>("main.key1", "value1");
+  // DumpFileContent(none_exists_ini_file);
+  EXPECT_EQ(
+      IniSettings2::GetInstance().GetValue<std::string>("main.key1", "default"),
+      "value1");
+  std::filesystem::remove(none_exists_ini_file);
 }
 
 TEST(IniSettings, write_read_test) {
