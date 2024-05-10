@@ -172,7 +172,7 @@ TEST(IniSettings, multithread_rw_test) {
   std::string cmd = "echo \" \" > ";
   cmd += ini_file_1;
 
-  system(cmd.c_str());
+  std::ignore = system(cmd.c_str());
 
   auto res = settings.GetValue<std::string>("string.key1", "value1");
   EXPECT_TRUE(res == "value3");
@@ -183,7 +183,6 @@ TEST(IniSettings, multithread_rw_test) {
 }
 
 TEST(IniSettings, multithread_www_test) {
-  constexpr const char ini_file_11[] = "/tmp/ini_settings_test_11.ini";
   auto& settings = MySettings::GetInstance();
   settings.GetValue<std::string>("string.key1", "value1");
   std::vector<std::thread> threads;
