@@ -29,6 +29,9 @@ FetchContent_Declare(
   Ini-cpp
   GIT_REPOSITORY git@github.com:penglei0/Ini-cpp.git
   GIT_TAG v1.0.0)
+set(BUILD_INI_TESTING
+    OFF
+    CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(Ini-cpp)
 message("Ini_cpp source directory is :" ${Ini-cpp_SOURCE_DIR})
 message("Ini_cpp binary directory is :" ${Ini-cpp_BINARY_DIR})
