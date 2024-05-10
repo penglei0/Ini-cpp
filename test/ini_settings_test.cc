@@ -5,13 +5,11 @@
 // it has a unique address across all translation units, and can be used as a
 // non-type template argument.
 constexpr const char ini_file_1[] = "/tmp/ini_settings_test_1.ini";
-constexpr const char ini_file_2[] = "/tmp/ini_settings_test_2.ini";
 
-constexpr const char path[] = "/tmp/my_settings.ini";
-using MySettings = Settings<path>;
+constexpr const char my_ini_path[] = "/tmp/my_settings.ini";
+using MySettings = Settings<my_ini_path>;
 
 using IniSettings1 = Settings<ini_file_1>;
-using IniSettings2 = Settings<ini_file_2>;
 
 void DumpFileContent(const std::string& file) {
   std::ifstream ifs(file);
