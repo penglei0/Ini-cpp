@@ -191,15 +191,15 @@ class Settings {
                 const StrStrMap& ini_content_tbl);
   void ReadIni(std::basic_istream<char>& stream, StrStrMap& ini_content_tbl);
   // protect read/write
-  std::mutex rw_mutex_;
+  std::mutex ini_rw_mutex_;
 };
 
 template <const char* IniFullPath>
 template <typename T, typename... Types, enable_if_supported_type<T>>
 T Settings<IniFullPath>::GetValue2(T default_value, const std::string& fmt,
                                    Types&&... args) {
-  // lock rw_mutex_
-  std::lock_guard<std::mutex> lock(rw_mutex_);
+  // lock ini_rw_mutex_
+  std::lock_guard<std::mutex> lock(ini_rw_mutex_);
   if (!std::filesystem::exists(IniFullPath)) {
     return default_value;
   }
@@ -233,7 +233,7 @@ T Settings<IniFullPath>::GetValue2(T default_value, const std::string& fmt,
 template <const char* IniFullPath>
 template <typename T, enable_if_supported_type<T>>
 T Settings<IniFullPath>::GetValue(const std::string& key, T default_value) {
-  std::lock_guard<std::mutex> lock(rw_mutex_);
+  std::lock_guard<std::mutex> lock(ini_rw_mutex_);
   if (!std::filesystem::exists(IniFullPath)) {
     return default_value;
   }
@@ -256,26 +256,26 @@ T Settings<IniFullPath>::GetValue(const std::string& key, T default_value) {
 template <const char* IniFullPath>
 template <typename T, enable_if_supported_type<T>>
 void Settings<IniFullPath>::SetValue(const std::string& key, T value) {
-  std::lock_guard<std::mutex> lock(rw_mutex_);
+  std::lock_guard<std::mutex> lock(ini_rw_mutex_);
   if (!std::filesystem::exists(IniFullPath)) {
     std::cout << IniFullPath << " doesn't exist, create a new one."
               << std::endl;
-    auto parent_path = std::filesystem::path(IniFullPath).parent_path();
-    if (!std::filesystem::exists(parent_path)) {
-      std::cout << "Create directory: " << parent_path << std::endl;
-      if (!std::filesystem::create_directories(parent_path)) {
+    auto ini_parent_path = std::filesystem::path(IniFullPath).parent_path();
+    if (!std::filesystem::exists(ini_parent_path)) {
+      std::cout << "Create directory: " << ini_parent_path << std::endl;
+      if (!std::filesystem::create_directories(ini_parent_path)) {
         // maybe permission denied
         throw std::runtime_error("File create failed");
       }
     }
-    auto create_file = [](const std::string& path) -> bool {
-      std::ofstream file(path);
+    auto create_ini_file = [](const std::string& ini_path) -> bool {
+      std::ofstream file(ini_path);
       if (!file) {
         return false;
       }
       return true;
     };
-    if (!create_file(IniFullPath)) {
+    if (!create_ini_file(IniFullPath)) {
       // maybe permission denied
       throw std::runtime_error("File create failed");
     }
