@@ -183,16 +183,49 @@ class Settings {
   void SetValue(const std::string& key, T value);
 
  private:
-  Settings() = default;
+  Settings() {
+    if (std::filesystem::exists(IniFullPath)) {
+      last_write_time_ = std::filesystem::last_write_time(IniFullPath);
+    }
+  }
   virtual ~Settings() = default;
 
   // ***********  implementation ***********
+  bool LoadContentTbl();
+  bool StoreContentTbl();
   void WriteIni(std::basic_ostream<char>& stream,
                 const StrStrMap& ini_content_tbl);
   void ReadIni(std::basic_istream<char>& stream, StrStrMap& ini_content_tbl);
   // protect read/write
   std::mutex ini_rw_mutex_;
+  StrStrMap content_tbl_;
+  std::filesystem::file_time_type last_write_time_;
+  // stored in memory, and write back to the ini file when SetValue is called.
 };
+
+template <const char* IniFullPath>
+bool Settings<IniFullPath>::LoadContentTbl() {
+  std::basic_ifstream<char> stream(IniFullPath,
+                                   std::ios_base::out | std::ios_base::app);
+  if (!stream) {
+    return false;
+  }
+  stream.imbue(std::locale());
+  // Read all the key-value pairs from the ini file
+  ReadIni(stream, content_tbl_);
+  return true;
+}
+
+template <const char* IniFullPath>
+bool Settings<IniFullPath>::StoreContentTbl() {
+  std::basic_ofstream<char> stream(IniFullPath);
+  if (!stream) {
+    return false;
+  }
+  stream.imbue(std::locale());
+  WriteIni(stream, content_tbl_);
+  return true;
+}
 
 template <const char* IniFullPath>
 template <typename T, typename... Types, enable_if_supported_type<T>>
@@ -203,18 +236,6 @@ T Settings<IniFullPath>::GetValue2(T default_value, const std::string& fmt,
   if (!std::filesystem::exists(IniFullPath)) {
     return default_value;
   }
-  std::basic_ifstream<char> stream(IniFullPath,
-                                   std::ios_base::out | std::ios_base::app);
-  if (!stream) {
-    // maybe permission denied
-    std::string err_msg = IniFullPath;
-    err_msg += " open failed";
-    throw std::runtime_error(err_msg);
-  }
-  StrStrMap kv_table;
-  stream.imbue(std::locale());
-  // Read all the key-value pairs from the ini file
-  ReadIni(stream, kv_table);
 
   auto formatString = [](const std::string& __fmt, auto&&... __args) {
     size_t args_size = snprintf(nullptr, 0, __fmt.c_str(),
@@ -225,9 +246,18 @@ T Settings<IniFullPath>::GetValue2(T default_value, const std::string& fmt,
              std::forward<decltype(__args)>(__args)...);
     return std::string(args_buf.get(), args_buf.get() + args_size - 1);
   };
-
   std::string key = formatString(fmt, std::forward<Types>(args)...);
-  return ConvertValue(kv_table[key], default_value);
+
+  // no updates, use the memory content_tbl_
+  if (last_write_time_ != std::filesystem::last_write_time(IniFullPath)) {
+    if (!LoadContentTbl()) {
+      std::string err_msg = IniFullPath;
+      err_msg += " open failed, maybe permission denied.";
+      throw std::runtime_error(err_msg);
+    }
+    last_write_time_ = std::filesystem::last_write_time(IniFullPath);
+  }
+  return ConvertValue(content_tbl_[key], default_value);
 }
 
 template <const char* IniFullPath>
@@ -237,20 +267,16 @@ T Settings<IniFullPath>::GetValue(const std::string& key, T default_value) {
   if (!std::filesystem::exists(IniFullPath)) {
     return default_value;
   }
-  std::basic_ifstream<char> stream(IniFullPath,
-                                   std::ios_base::out | std::ios_base::app);
-  if (!stream) {
-    // maybe permission denied
-    std::string err_msg = IniFullPath;
-    err_msg += " open failed";
-    throw std::runtime_error(err_msg);
+  // no updates, use the memory content_tbl_
+  if (last_write_time_ != std::filesystem::last_write_time(IniFullPath)) {
+    if (!LoadContentTbl()) {
+      std::string err_msg = IniFullPath;
+      err_msg += " open failed, maybe permission denied.";
+      throw std::runtime_error(err_msg);
+    }
+    last_write_time_ = std::filesystem::last_write_time(IniFullPath);
   }
-  StrStrMap kv_table;
-  stream.imbue(std::locale());
-
-  // Read all the key-value pairs from the ini file
-  ReadIni(stream, kv_table);
-  return ConvertValue(kv_table[key], default_value);
+  return ConvertValue(content_tbl_[key], default_value);
 }
 
 template <const char* IniFullPath>
@@ -280,38 +306,31 @@ void Settings<IniFullPath>::SetValue(const std::string& key, T value) {
       throw std::runtime_error("File create failed");
     }
     std::cout << "Create regular file: " << IniFullPath << std::endl;
+    last_write_time_ = std::filesystem::last_write_time(IniFullPath);
   }
 
-  StrStrMap kv_table;
-  {
-    std::basic_ifstream<char> stream(IniFullPath,
-                                     std::ios_base::out | std::ios_base::app);
-    if (!stream) {
-      // maybe permission denied
+  // load before write
+  if (last_write_time_ != std::filesystem::last_write_time(IniFullPath)) {
+    if (!LoadContentTbl()) {
       std::string err_msg = IniFullPath;
-      err_msg += " open failed";
+      err_msg += " open failed, maybe permission denied.";
       throw std::runtime_error(err_msg);
     }
-    stream.imbue(std::locale());
-    // Read all the key-value pairs from the ini file
-    ReadIni(stream, kv_table);
   }
+
   std::stringstream ss;
   std::string value_string;
   ss << value;
   ss >> value_string;
-  auto it = kv_table.find(key);
-  if (it != kv_table.end()) {
-    it = kv_table.erase(it);
+  // insert or update
+  content_tbl_.insert_or_assign(key, value_string);
+
+  if (!StoreContentTbl()) {
+    std::string err_msg = IniFullPath;
+    err_msg += " write failed, maybe permission denied.";
+    throw std::runtime_error(err_msg);
   }
-  kv_table.insert(std::make_pair(key, value_string));
-  // write back to the ini file
-  std::basic_ofstream<char> out(IniFullPath);
-  if (!out) {
-    throw std::runtime_error("File open failed");
-  }
-  out.imbue(std::locale());
-  WriteIni(out, kv_table);
+  last_write_time_ = std::filesystem::last_write_time(IniFullPath);
 }
 /**
  * @brief Write the `ini_content_tbl` to the `stream`.
