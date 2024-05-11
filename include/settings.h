@@ -46,7 +46,7 @@ using enable_if_supported_type = typename std::enable_if<
  * @return T
  */
 template <typename T, enable_if_supported_type<T> = 0>
-T ConvertValue(const std::string& value, T default_value) {
+T ConvertValue(const std::string& value, const T& default_value) {
   if (value.empty()) {
     return default_value;
   }
@@ -160,7 +160,7 @@ class Settings {
    * @return T
    */
   template <typename T, typename... Types, enable_if_supported_type<T> = 0>
-  T GetValue2(T default_value, const std::string& fmt, Types&&... args);
+  T GetValue2(const T& default_value, const std::string& fmt, Types&&... args);
   /**
    * @brief Get the value of the `key` from the `ini` file. If the `key` doesn't
    * exist, return the `default_value`.
@@ -180,7 +180,7 @@ class Settings {
    * @param value The value to be saved.
    */
   template <typename T, enable_if_supported_type<T> = 0>
-  void SetValue(const std::string& key, T value);
+  void SetValue(const std::string& key, const T& value);
 
   friend std::ostream& operator<<(std::ostream& os, const Settings& settings) {
     for (auto& [key, value] : settings.content_tbl_) {
@@ -245,8 +245,8 @@ bool Settings<IniFullPath>::StoreContentTbl() {
 
 template <const char* IniFullPath>
 template <typename T, typename... Types, enable_if_supported_type<T>>
-T Settings<IniFullPath>::GetValue2(T default_value, const std::string& fmt,
-                                   Types&&... args) {
+T Settings<IniFullPath>::GetValue2(const T& default_value,
+                                   const std::string& fmt, Types&&... args) {
   std::lock_guard<std::mutex> lock(ini_rw_mutex_);
   if (!std::filesystem::exists(IniFullPath)) {
     return default_value;
@@ -302,7 +302,7 @@ T Settings<IniFullPath>::GetValue(const std::string& key, T default_value) {
 
 template <const char* IniFullPath>
 template <typename T, enable_if_supported_type<T>>
-void Settings<IniFullPath>::SetValue(const std::string& key, T value) {
+void Settings<IniFullPath>::SetValue(const std::string& key, const T& value) {
   std::lock_guard<std::mutex> lock(ini_rw_mutex_);
   if (!std::filesystem::exists(IniFullPath)) {
     std::cout << IniFullPath << " doesn't exist, create a new one."
