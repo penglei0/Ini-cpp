@@ -9,50 +9,60 @@
 
 // it has a unique address across all translation units, and can be used as a
 // non-type template argument.
-constexpr const char ini_file_1[] = "/tmp/ini_settings_test_1.ini";
-constexpr const char read_exist_file[] =
-    "/tmp/ini_settings_test_read_exist.ini";
-constexpr const char none_exists_ini_file[] =
-    "/tmp/ini_settings_test_none_exists.ini";
-constexpr const char my_ini_path[] = "/tmp/my_settings.ini";
+constexpr const char ini_file[] = "/tmp/ini_settings_test_1.ini";
 
-using MySettings = Settings<my_ini_path>;
-using IniSettings1 = Settings<ini_file_1>;
-using ExistSettings = Settings<read_exist_file>;
-
-TEST(IniSettings, read_none_exists_file) {
-  using IniSettings2 = Settings<none_exists_ini_file>;
-  // check exist
-  if (std::filesystem::exists(none_exists_ini_file)) {
-    std::filesystem::remove(none_exists_ini_file);
+class IniSettingsTest : public ::testing::Test {
+ protected:
+  using TestIniSettings = Settings<ini_file>;
+  void SetUp() override {
+    auto file_path = TestIniSettings::GetInstance().GetFullPath();
+    if (std::filesystem::exists(file_path)) {
+      std::filesystem::remove(file_path);
+    }
+    TestIniSettings::GetInstance();
   }
-  // read
-  EXPECT_EQ(
-      IniSettings2::GetInstance().GetValue<std::string>("main.key1", "default"),
-      "default");
-  std::filesystem::remove(none_exists_ini_file);
+
+  void TearDown() override {
+    auto file_path = TestIniSettings::GetInstance().GetFullPath();
+    if (std::filesystem::exists(file_path)) {
+      std::filesystem::remove(file_path);
+    }
+    // DestroyInstance
+    TestIniSettings::DestroyInstance();
+  }
+
+  void WriteIniFileContent(const std::string& ini_content) {
+    auto file_path = TestIniSettings::GetInstance().GetFullPath();
+    std::ofstream file(file_path);
+    if (!file) {
+      EXPECT_FALSE(true);
+    }
+    file << ini_content;
+    file.close();
+  }
+};
+
+TEST_F(IniSettingsTest, read_none_exists_file) {
+  EXPECT_EQ(TestIniSettings::GetInstance().GetValue<std::string>("main.key1",
+                                                                 "default"),
+            "default");
 }
 
-TEST(IniSettings, write_none_exists_file) {
-  using IniSettings2 = Settings<none_exists_ini_file>;
-  // check exist
-  if (std::filesystem::exists(none_exists_ini_file)) {
-    std::filesystem::remove(none_exists_ini_file);
-  }
+TEST_F(IniSettingsTest, write_none_exists_file) {
   // invalid write since no section name
-  IniSettings2::GetInstance().SetValue<std::string>("key1", "value1");
-  EXPECT_TRUE(std::filesystem::exists(none_exists_ini_file));
-  EXPECT_EQ(std::filesystem::file_size(none_exists_ini_file), 0);
+  auto file_path = TestIniSettings::GetInstance().GetFullPath();
+  TestIniSettings::GetInstance().SetValue<std::string>("key1", "value1");
+  EXPECT_TRUE(std::filesystem::exists(file_path));
+  EXPECT_EQ(std::filesystem::file_size(file_path), 0);
 
-  IniSettings2::GetInstance().SetValue<std::string>("main.key1", "value1");
-  EXPECT_EQ(
-      IniSettings2::GetInstance().GetValue<std::string>("main.key1", "default"),
-      "value1");
-  std::filesystem::remove(none_exists_ini_file);
+  TestIniSettings::GetInstance().SetValue<std::string>("main.key1", "value1");
+  EXPECT_EQ(TestIniSettings::GetInstance().GetValue<std::string>("main.key1",
+                                                                 "default"),
+            "value1");
 }
 
-TEST(IniSettings, write_read_test) {
-  auto& settings = IniSettings1::GetInstance();
+TEST_F(IniSettingsTest, write_read_test) {
+  auto& settings = TestIniSettings::GetInstance();
   // string
   settings.SetValue<std::string>("string.key1", "value1");
   settings.SetValue<std::string>("string.key2", "value2");
@@ -120,9 +130,8 @@ TEST(IniSettings, write_read_test) {
   EXPECT_EQ(res, "value1");
 }
 
-TEST(IniSettings, multithread_rw_test) {
-  std::filesystem::remove(IniSettings1::GetInstance().GetFullPath());
-  auto& settings = IniSettings1::GetInstance();
+TEST_F(IniSettingsTest, multithread_rw_test) {
+  auto& settings = TestIniSettings::GetInstance();
   EXPECT_EQ(settings.GetValue<std::string>("string.key1", "value1"), "value1");
   settings.SetValue<std::string>("string.key1", "value2");
 
@@ -147,7 +156,7 @@ TEST(IniSettings, multithread_rw_test) {
       settings.SetValue<std::string>("string.key1", "value3");
     }
     std::cout << "write_thread done" << std::endl;
-    IniSettings1::GetInstance().DumpFile();
+    TestIniSettings::GetInstance().DumpFile();
     std::cout << "========================== " << std::endl;
   });
 
@@ -156,19 +165,20 @@ TEST(IniSettings, multithread_rw_test) {
   std::cout << "start modify" << std::endl;
   // add space to `ini_file_1` by executing bash cmd echo " " > ini_file_1
   std::string cmd = "echo \" \" >> ";
-  cmd += ini_file_1;
+  cmd += TestIniSettings::GetInstance().GetFullPath();
 
   std::ignore = system(cmd.c_str());
 
   auto res = settings.GetValue<std::string>("string.key1", "value1");
   EXPECT_TRUE(res == "value3");
 
-  std::filesystem::remove(IniSettings1::GetInstance().GetFullPath());
+  std::filesystem::remove(TestIniSettings::GetInstance().GetFullPath());
   // it will not use the cache.
   EXPECT_EQ(settings.GetValue<std::string>("string.key1", "delete"), "delete");
 }
-TEST(IniSettings, multithread_www_test) {
-  auto& settings = MySettings::GetInstance();
+
+TEST_F(IniSettingsTest, multithread_www_test) {
+  auto& settings = TestIniSettings::GetInstance();
   settings.GetValue<std::string>("string.key1", "value1");
   std::vector<std::thread> threads;
   std::atomic<bool> is_ready = {false};
@@ -197,19 +207,19 @@ TEST(IniSettings, multithread_www_test) {
               res == "value13" || res == "value14" || res == "value15" ||
               res == "value16" || res == "value17" || res == "value18" ||
               res == "value19");
-  MySettings::GetInstance().DumpFile();
+  TestIniSettings::GetInstance().DumpFile();
 }
+
 /// @brief Read a non-exist key, it will return the default value; and it's
 /// default value should not be stored.
 /// @param
 /// @param
-TEST(IniSettings, read_default_value_should_not_be_stored) {
-  std::filesystem::remove(IniSettings1::GetInstance().GetFullPath());
-  std::ofstream file(IniSettings1::GetInstance().GetFullPath());
+TEST_F(IniSettingsTest, read_default_value_should_not_be_stored) {
+  std::ofstream file(TestIniSettings::GetInstance().GetFullPath());
   if (!file) {
     EXPECT_FALSE(true);
   }
-  auto& settings = IniSettings1::GetInstance();
+  auto& settings = TestIniSettings::GetInstance();
   EXPECT_EQ(settings.GetValue<std::string>("string.key1", "default_value1"),
             "default_value1");
   EXPECT_EQ(settings.GetValue<std::string>("string.key1", "default_value2"),
@@ -217,16 +227,16 @@ TEST(IniSettings, read_default_value_should_not_be_stored) {
   // set
   settings.SetValue<std::string>("string.key1", "value1");
   EXPECT_EQ(settings.GetValue<std::string>("string.key1", "value1"), "value1");
-  // std::filesystem::remove(IniSettings1::GetInstance().GetFullPath());
 }
 
-TEST(IniSettings, abnormal_write_test) {
+TEST_F(IniSettingsTest, abnormal_write_test) {
   // no section name
-  EXPECT_EQ(MySettings::GetInstance().GetValue<std::string>("key1", "default"),
-            "default");
+  EXPECT_EQ(
+      TestIniSettings::GetInstance().GetValue<std::string>("key1", "default"),
+      "default");
   // invalid write
-  MySettings::GetInstance().SetValue<std::string>("key1", "value1");
-  MySettings::GetInstance().DumpFile();
+  TestIniSettings::GetInstance().SetValue<std::string>("key1", "value1");
+  TestIniSettings::GetInstance().DumpFile();
 }
 
 const char my_ini_content[] = R"(
@@ -250,34 +260,26 @@ key2=value22
 #
 #
 )";
-TEST(IniSettings, read_exist_file) {
-  std::filesystem::remove(ExistSettings::GetInstance().GetFullPath());
-  // write content to file `my_ini_path`
-  std::ofstream file(ExistSettings::GetInstance().GetFullPath());
-  if (!file) {
-    EXPECT_FALSE(true);
-  }
-  file << my_ini_content;
-  file.close();
+TEST_F(IniSettingsTest, read_exist_file) {
+  WriteIniFileContent(my_ini_content);
 
-  EXPECT_EQ(ExistSettings::GetInstance().GetValue<std::string>("string.key1",
-                                                               "default"),
+  EXPECT_EQ(TestIniSettings::GetInstance().GetValue<std::string>("string.key1",
+                                                                 "default"),
             "value11");
-  EXPECT_EQ(ExistSettings::GetInstance().GetValue<std::string>("string.key2"),
+  EXPECT_EQ(TestIniSettings::GetInstance().GetValue<std::string>("string.key2"),
             "value22");
-  EXPECT_EQ(ExistSettings::GetInstance().GetValue<int>("int.key1"), 1);
-  EXPECT_EQ(ExistSettings::GetInstance().GetValue<int>("int.key2"), 2);
-  EXPECT_FLOAT_EQ(ExistSettings::GetInstance().GetValue<float>("float.key1"),
+  EXPECT_EQ(TestIniSettings::GetInstance().GetValue<int>("int.key1"), 1);
+  EXPECT_EQ(TestIniSettings::GetInstance().GetValue<int>("int.key2"), 2);
+  EXPECT_FLOAT_EQ(TestIniSettings::GetInstance().GetValue<float>("float.key1"),
                   1.1);
-  EXPECT_FLOAT_EQ(ExistSettings::GetInstance().GetValue<float>("float.key2"),
+  EXPECT_FLOAT_EQ(TestIniSettings::GetInstance().GetValue<float>("float.key2"),
                   2.2);
   EXPECT_FLOAT_EQ(
-      ExistSettings::GetInstance().GetValue<float>("float.key3", 3.10), 3.10);
-  EXPECT_EQ(ExistSettings::GetInstance().GetValue<bool>("bool.key1"), true);
-  EXPECT_EQ(ExistSettings::GetInstance().GetValue<bool>("bool.key2"), false);
-  EXPECT_EQ(ExistSettings::GetInstance().GetValue<bool>("bool.key3", true),
+      TestIniSettings::GetInstance().GetValue<float>("float.key3", 3.10), 3.10);
+  EXPECT_EQ(TestIniSettings::GetInstance().GetValue<bool>("bool.key1"), true);
+  EXPECT_EQ(TestIniSettings::GetInstance().GetValue<bool>("bool.key2"), false);
+  EXPECT_EQ(TestIniSettings::GetInstance().GetValue<bool>("bool.key3", true),
             true);
-  std::filesystem::remove(ExistSettings::GetInstance().GetFullPath());
 }
 
 int main(int argc, char** argv) {

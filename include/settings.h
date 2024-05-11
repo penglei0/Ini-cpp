@@ -135,6 +135,11 @@ class Settings {
     }
     return *ins;
   }
+  // Tear down the singleton
+  static void DestroyInstance() {
+    Settings* ins = &GetInstance();
+    delete ins;
+  }
   // disable copy and move
   Settings(Settings const&) = delete;
   Settings& operator=(Settings const&) = delete;
