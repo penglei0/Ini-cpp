@@ -10,12 +10,15 @@
 // it has a unique address across all translation units, and can be used as a
 // non-type template argument.
 constexpr const char ini_file_1[] = "/tmp/ini_settings_test_1.ini";
+constexpr const char read_exist_file[] =
+    "/tmp/ini_settings_test_read_exist.ini";
 constexpr const char none_exists_ini_file[] =
     "/tmp/ini_settings_test_none_exists.ini";
 constexpr const char my_ini_path[] = "/tmp/my_settings.ini";
-using MySettings = Settings<my_ini_path>;
 
+using MySettings = Settings<my_ini_path>;
 using IniSettings1 = Settings<ini_file_1>;
+using ExistSettings = Settings<read_exist_file>;
 
 TEST(IniSettings, read_none_exists_file) {
   using IniSettings2 = Settings<none_exists_ini_file>;
@@ -224,6 +227,57 @@ TEST(IniSettings, abnormal_write_test) {
   // invalid write
   MySettings::GetInstance().SetValue<std::string>("key1", "value1");
   MySettings::GetInstance().DumpFile();
+}
+
+const char my_ini_content[] = R"(
+[bool]
+key1=1
+key2=0
+#key3=0
+
+[float]
+key1=1.100000
+key2=2.200000
+;key3=3.300000
+[int]
+key1=1
+key2=2
+
+[string]
+key1=value11
+key2=value22
+
+#
+#
+)";
+TEST(IniSettings, read_exist_file) {
+  std::filesystem::remove(ExistSettings::GetInstance().GetFullPath());
+  // write content to file `my_ini_path`
+  std::ofstream file(ExistSettings::GetInstance().GetFullPath());
+  if (!file) {
+    EXPECT_FALSE(true);
+  }
+  file << my_ini_content;
+  file.close();
+
+  EXPECT_EQ(ExistSettings::GetInstance().GetValue<std::string>("string.key1",
+                                                               "default"),
+            "value11");
+  EXPECT_EQ(ExistSettings::GetInstance().GetValue<std::string>("string.key2"),
+            "value22");
+  EXPECT_EQ(ExistSettings::GetInstance().GetValue<int>("int.key1"), 1);
+  EXPECT_EQ(ExistSettings::GetInstance().GetValue<int>("int.key2"), 2);
+  EXPECT_FLOAT_EQ(ExistSettings::GetInstance().GetValue<float>("float.key1"),
+                  1.1);
+  EXPECT_FLOAT_EQ(ExistSettings::GetInstance().GetValue<float>("float.key2"),
+                  2.2);
+  EXPECT_FLOAT_EQ(
+      ExistSettings::GetInstance().GetValue<float>("float.key3", 3.10), 3.10);
+  EXPECT_EQ(ExistSettings::GetInstance().GetValue<bool>("bool.key1"), true);
+  EXPECT_EQ(ExistSettings::GetInstance().GetValue<bool>("bool.key2"), false);
+  EXPECT_EQ(ExistSettings::GetInstance().GetValue<bool>("bool.key3", true),
+            true);
+  std::filesystem::remove(ExistSettings::GetInstance().GetFullPath());
 }
 
 int main(int argc, char** argv) {

@@ -419,7 +419,9 @@ void Settings<IniFullPath>::ReadIni(std::basic_istream<char>& stream,
   // For all lines
   while (stream.good()) {
     std::getline(stream, line);
-    if (!stream.good() && !stream.eof()) {
+    // "eof": true if an end-of-file has occurred, false otherwise.
+    // "good": true if the stream error flags are all false, false otherwise.
+    if (!stream.good() || stream.eof()) {
       break;
     }
     // If line is non-empty
