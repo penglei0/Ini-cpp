@@ -184,7 +184,7 @@ class Settings {
 
   friend std::ostream& operator<<(std::ostream& os, const Settings& settings) {
     for (auto& [key, value] : settings.content_tbl_) {
-      os << key << " = " << value << std::endl;
+      os << "*" << key << " = " << value << std::endl;
     }
     return os;
   }
@@ -272,7 +272,10 @@ T Settings<IniFullPath>::GetValue2(T default_value, const std::string& fmt,
     }
     last_write_time_ = std::filesystem::last_write_time(IniFullPath);
   }
-  return ConvertValue(content_tbl_[key], default_value);
+  if (content_tbl_.find(key) == content_tbl_.end()) {
+    return default_value;
+  }
+  return ConvertValue(content_tbl_.at(key), default_value);
 }
 
 template <const char* IniFullPath>
@@ -291,7 +294,10 @@ T Settings<IniFullPath>::GetValue(const std::string& key, T default_value) {
     }
     last_write_time_ = std::filesystem::last_write_time(IniFullPath);
   }
-  return ConvertValue(content_tbl_[key], default_value);
+  if (content_tbl_.find(key) == content_tbl_.end()) {
+    return default_value;
+  }
+  return ConvertValue(content_tbl_.at(key), default_value);
 }
 
 template <const char* IniFullPath>
@@ -361,6 +367,10 @@ void Settings<IniFullPath>::WriteIni(std::basic_ostream<char>& stream,
                                      const StrStrMap& ini_content_tbl) {
   std::set<std::string> sec_name_set;
   for (auto& [combined_key, value] : ini_content_tbl) {
+    if (value.empty()) {
+      // always ignore empty value. it make no sense.
+      continue;
+    }
     auto combined_key_vec = Split(combined_key, ".");
     if (combined_key_vec.size() < 2) {
       // no section or key: invalid data
