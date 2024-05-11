@@ -17,19 +17,6 @@ using MySettings = Settings<my_ini_path>;
 
 using IniSettings1 = Settings<ini_file_1>;
 
-void DumpFileContent(const std::string& file) {
-  std::ifstream ifs(file);
-  if (!ifs.is_open()) {
-    std::cerr << "Failed to open file: " << file << std::endl;
-    return;
-  }
-
-  std::string line;
-  while (std::getline(ifs, line)) {
-    std::cout << line << std::endl;
-  }
-}
-
 TEST(IniSettings, read_none_exists_file) {
   using IniSettings2 = Settings<none_exists_ini_file>;
   // check exist
@@ -84,7 +71,7 @@ TEST(IniSettings, write_read_test) {
   settings.SetValue<bool>("bool.key2", false);
   settings.SetValue<bool>("bool.key3", 1);
 
-  DumpFileContent(ini_file_1);
+  settings.DumpFile();
 
   // read it back
   // string
@@ -137,13 +124,15 @@ TEST(IniSettings, abnormal_write_test) {
             "default");
   // invalid write
   MySettings::GetInstance().SetValue<std::string>("key1", "value1");
-  DumpFileContent(MySettings::GetInstance().GetFullPath());
+  MySettings::GetInstance().DumpFile();
 }
 
 TEST(IniSettings, multithread_rw_test) {
+  std::filesystem::remove(IniSettings1::GetInstance().GetFullPath());
   auto& settings = IniSettings1::GetInstance();
   EXPECT_EQ(settings.GetValue<std::string>("string.key1", "value1"), "value1");
   settings.SetValue<std::string>("string.key1", "value2");
+
   EXPECT_EQ(settings.GetValue<std::string>("string.key1", "value1"), "value2");
   EXPECT_EQ(settings.GetValue<std::string>("string.key1", "value1"), "value2");
   EXPECT_EQ(settings.GetValue<std::string>("string.key1", "value1"), "value2");
@@ -156,6 +145,7 @@ TEST(IniSettings, multithread_rw_test) {
       auto res = settings.GetValue<std::string>("string.key1", "value1");
       EXPECT_TRUE(res == "value2" || res == "value3");
     }
+    std::cout << "read_thread done" << std::endl;
   });
 
   std::thread write_thread = std::thread([&settings, &is_ready]() {
@@ -163,13 +153,17 @@ TEST(IniSettings, multithread_rw_test) {
     for (int i = 0; i < 3000; ++i) {
       settings.SetValue<std::string>("string.key1", "value3");
     }
+    std::cout << "write_thread done" << std::endl;
+    std::cout << IniSettings1::GetInstance();
+    IniSettings1::GetInstance().DumpFile();
+    std::cout << "========================== " << std::endl;
   });
 
   read_thread.join();
   write_thread.join();
-
+  std::cout << "start modify" << std::endl;
   // add space to `ini_file_1` by executing bash cmd echo " " > ini_file_1
-  std::string cmd = "echo \" \" > ";
+  std::string cmd = "echo \" \" >> ";
   cmd += ini_file_1;
 
   std::ignore = system(cmd.c_str());
@@ -213,7 +207,7 @@ TEST(IniSettings, multithread_www_test) {
               res == "value13" || res == "value14" || res == "value15" ||
               res == "value16" || res == "value17" || res == "value18" ||
               res == "value19");
-  DumpFileContent(MySettings::GetInstance().GetFullPath());
+  MySettings::GetInstance().DumpFile();
 }
 
 int main(int argc, char** argv) {
