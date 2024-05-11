@@ -46,7 +46,7 @@ using enable_if_supported_type = typename std::enable_if<
  * @return T
  */
 template <typename T, enable_if_supported_type<T> = 0>
-T ConvertValue(const std::string& value, T default_value) {
+T ConvertValue(const std::string& value, const T& default_value) {
   if (value.empty()) {
     return default_value;
   }
@@ -135,6 +135,11 @@ class Settings {
     }
     return *ins;
   }
+  // Tear down the singleton
+  static void DestroyInstance() {
+    Settings* ins = &GetInstance();
+    delete ins;
+  }
   // disable copy and move
   Settings(Settings const&) = delete;
   Settings& operator=(Settings const&) = delete;
@@ -160,7 +165,7 @@ class Settings {
    * @return T
    */
   template <typename T, typename... Types, enable_if_supported_type<T> = 0>
-  T GetValue2(T default_value, const std::string& fmt, Types&&... args);
+  T GetValue2(const T& default_value, const std::string& fmt, Types&&... args);
   /**
    * @brief Get the value of the `key` from the `ini` file. If the `key` doesn't
    * exist, return the `default_value`.
@@ -180,41 +185,77 @@ class Settings {
    * @param value The value to be saved.
    */
   template <typename T, enable_if_supported_type<T> = 0>
-  void SetValue(const std::string& key, T value);
+  void SetValue(const std::string& key, const T& value);
+
+  friend std::ostream& operator<<(std::ostream& os, const Settings& settings) {
+    for (auto& [key, value] : settings.content_tbl_) {
+      os << "*" << key << " = " << value << std::endl;
+    }
+    return os;
+  }
+  void DumpFile() {
+    std::ifstream ifs(IniFullPath);
+    if (!ifs.is_open()) {
+      std::cerr << "Failed to open file: " << IniFullPath << std::endl;
+      return;
+    }
+    std::string line;
+    while (std::getline(ifs, line)) {
+      std::cout << line << std::endl;
+    }
+  }
 
  private:
   Settings() = default;
   virtual ~Settings() = default;
 
   // ***********  implementation ***********
+  bool LoadContentTbl();
+  bool StoreContentTbl();
   void WriteIni(std::basic_ostream<char>& stream,
                 const StrStrMap& ini_content_tbl);
   void ReadIni(std::basic_istream<char>& stream, StrStrMap& ini_content_tbl);
   // protect read/write
   std::mutex ini_rw_mutex_;
+  StrStrMap content_tbl_;
+  std::filesystem::file_time_type last_write_time_;
+  // stored in memory, and write back to the ini file when SetValue is called.
 };
 
 template <const char* IniFullPath>
+bool Settings<IniFullPath>::LoadContentTbl() {
+  std::basic_ifstream<char> stream(IniFullPath,
+                                   std::ios_base::out | std::ios_base::app);
+  if (!stream) {
+    return false;
+  }
+  stream.imbue(std::locale());
+  content_tbl_.clear();
+  // Read all the key-value pairs from the ini file
+  ReadIni(stream, content_tbl_);
+  return true;
+}
+
+template <const char* IniFullPath>
+bool Settings<IniFullPath>::StoreContentTbl() {
+  std::basic_ofstream<char> stream(IniFullPath);
+  if (!stream) {
+    return false;
+  }
+  stream.imbue(std::locale());
+  WriteIni(stream, content_tbl_);
+  last_write_time_ = std::filesystem::last_write_time(IniFullPath);
+  return true;
+}
+
+template <const char* IniFullPath>
 template <typename T, typename... Types, enable_if_supported_type<T>>
-T Settings<IniFullPath>::GetValue2(T default_value, const std::string& fmt,
-                                   Types&&... args) {
-  // lock ini_rw_mutex_
+T Settings<IniFullPath>::GetValue2(const T& default_value,
+                                   const std::string& fmt, Types&&... args) {
   std::lock_guard<std::mutex> lock(ini_rw_mutex_);
   if (!std::filesystem::exists(IniFullPath)) {
     return default_value;
   }
-  std::basic_ifstream<char> stream(IniFullPath,
-                                   std::ios_base::out | std::ios_base::app);
-  if (!stream) {
-    // maybe permission denied
-    std::string err_msg = IniFullPath;
-    err_msg += " open failed";
-    throw std::runtime_error(err_msg);
-  }
-  StrStrMap kv_table;
-  stream.imbue(std::locale());
-  // Read all the key-value pairs from the ini file
-  ReadIni(stream, kv_table);
 
   auto formatString = [](const std::string& __fmt, auto&&... __args) {
     size_t args_size = snprintf(nullptr, 0, __fmt.c_str(),
@@ -225,9 +266,21 @@ T Settings<IniFullPath>::GetValue2(T default_value, const std::string& fmt,
              std::forward<decltype(__args)>(__args)...);
     return std::string(args_buf.get(), args_buf.get() + args_size - 1);
   };
-
   std::string key = formatString(fmt, std::forward<Types>(args)...);
-  return ConvertValue(kv_table[key], default_value);
+
+  // no updates, use the memory content_tbl_
+  if (last_write_time_ != std::filesystem::last_write_time(IniFullPath)) {
+    if (!LoadContentTbl()) {
+      std::string err_msg = IniFullPath;
+      err_msg += " open failed, maybe permission denied.";
+      throw std::runtime_error(err_msg);
+    }
+    last_write_time_ = std::filesystem::last_write_time(IniFullPath);
+  }
+  if (content_tbl_.find(key) == content_tbl_.end()) {
+    return default_value;
+  }
+  return ConvertValue(content_tbl_.at(key), default_value);
 }
 
 template <const char* IniFullPath>
@@ -237,25 +290,24 @@ T Settings<IniFullPath>::GetValue(const std::string& key, T default_value) {
   if (!std::filesystem::exists(IniFullPath)) {
     return default_value;
   }
-  std::basic_ifstream<char> stream(IniFullPath,
-                                   std::ios_base::out | std::ios_base::app);
-  if (!stream) {
-    // maybe permission denied
-    std::string err_msg = IniFullPath;
-    err_msg += " open failed";
-    throw std::runtime_error(err_msg);
+  // no updates, use the memory content_tbl_
+  if (last_write_time_ != std::filesystem::last_write_time(IniFullPath)) {
+    if (!LoadContentTbl()) {
+      std::string err_msg = IniFullPath;
+      err_msg += " open failed, maybe permission denied.";
+      throw std::runtime_error(err_msg);
+    }
+    last_write_time_ = std::filesystem::last_write_time(IniFullPath);
   }
-  StrStrMap kv_table;
-  stream.imbue(std::locale());
-
-  // Read all the key-value pairs from the ini file
-  ReadIni(stream, kv_table);
-  return ConvertValue(kv_table[key], default_value);
+  if (content_tbl_.find(key) == content_tbl_.end()) {
+    return default_value;
+  }
+  return ConvertValue(content_tbl_.at(key), default_value);
 }
 
 template <const char* IniFullPath>
 template <typename T, enable_if_supported_type<T>>
-void Settings<IniFullPath>::SetValue(const std::string& key, T value) {
+void Settings<IniFullPath>::SetValue(const std::string& key, const T& value) {
   std::lock_guard<std::mutex> lock(ini_rw_mutex_);
   if (!std::filesystem::exists(IniFullPath)) {
     std::cout << IniFullPath << " doesn't exist, create a new one."
@@ -265,7 +317,7 @@ void Settings<IniFullPath>::SetValue(const std::string& key, T value) {
       std::cout << "Create directory: " << ini_parent_path << std::endl;
       if (!std::filesystem::create_directories(ini_parent_path)) {
         // maybe permission denied
-        throw std::runtime_error("File create failed");
+        throw std::runtime_error("Path create failed");
       }
     }
     auto create_ini_file = [](const std::string& ini_path) -> bool {
@@ -280,38 +332,33 @@ void Settings<IniFullPath>::SetValue(const std::string& key, T value) {
       throw std::runtime_error("File create failed");
     }
     std::cout << "Create regular file: " << IniFullPath << std::endl;
+    last_write_time_ = std::filesystem::last_write_time(IniFullPath);
   }
 
-  StrStrMap kv_table;
-  {
-    std::basic_ifstream<char> stream(IniFullPath,
-                                     std::ios_base::out | std::ios_base::app);
-    if (!stream) {
-      // maybe permission denied
+  // load before write
+  if (last_write_time_ != std::filesystem::last_write_time(IniFullPath)) {
+    if (!LoadContentTbl()) {
       std::string err_msg = IniFullPath;
-      err_msg += " open failed";
+      err_msg += " open failed, maybe permission denied.";
       throw std::runtime_error(err_msg);
     }
-    stream.imbue(std::locale());
-    // Read all the key-value pairs from the ini file
-    ReadIni(stream, kv_table);
   }
-  std::stringstream ss;
+
   std::string value_string;
-  ss << value;
-  ss >> value_string;
-  auto it = kv_table.find(key);
-  if (it != kv_table.end()) {
-    it = kv_table.erase(it);
+  if constexpr (!std::is_same<typename std::decay<T>::type,
+                              std::string>::value) {
+    value_string = std::to_string(value);
+  } else {
+    value_string = value;
   }
-  kv_table.insert(std::make_pair(key, value_string));
-  // write back to the ini file
-  std::basic_ofstream<char> out(IniFullPath);
-  if (!out) {
-    throw std::runtime_error("File open failed");
+
+  // insert or update
+  content_tbl_.insert_or_assign(key, value_string);
+  if (!StoreContentTbl()) {
+    std::string err_msg = IniFullPath;
+    err_msg += " write failed, maybe permission denied.";
+    throw std::runtime_error(err_msg);
   }
-  out.imbue(std::locale());
-  WriteIni(out, kv_table);
 }
 /**
  * @brief Write the `ini_content_tbl` to the `stream`.
@@ -325,6 +372,10 @@ void Settings<IniFullPath>::WriteIni(std::basic_ostream<char>& stream,
                                      const StrStrMap& ini_content_tbl) {
   std::set<std::string> sec_name_set;
   for (auto& [combined_key, value] : ini_content_tbl) {
+    if (value.empty()) {
+      // always ignore empty value. it make no sense.
+      continue;
+    }
     auto combined_key_vec = Split(combined_key, ".");
     if (combined_key_vec.size() < 2) {
       // no section or key: invalid data
@@ -373,7 +424,9 @@ void Settings<IniFullPath>::ReadIni(std::basic_istream<char>& stream,
   // For all lines
   while (stream.good()) {
     std::getline(stream, line);
-    if (!stream.good() && !stream.eof()) {
+    // "eof": true if an end-of-file has occurred, false otherwise.
+    // "good": true if the stream error flags are all false, false otherwise.
+    if (!stream.good() || stream.eof()) {
       break;
     }
     // If line is non-empty
@@ -418,7 +471,7 @@ void Settings<IniFullPath>::ReadIni(std::basic_istream<char>& stream,
       if (ini_content_tbl.find(combined_key) != ini_content_tbl.end()) {
         std::cerr << "Duplicated key name " << combined_key << std::endl;
       }
-      ini_content_tbl.insert(std::make_pair(combined_key, (data)));
+      ini_content_tbl.insert_or_assign(combined_key, (data));
     }
   }
 }
