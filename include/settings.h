@@ -471,7 +471,7 @@ void Settings<IniFullPath>::ReadIni(std::basic_istream<char>& stream,
       if (ini_content_tbl.find(combined_key) != ini_content_tbl.end()) {
         std::cerr << "Duplicated key name " << combined_key << std::endl;
       }
-      ini_content_tbl.insert(std::make_pair(combined_key, (data)));
+      ini_content_tbl.insert_or_assign(combined_key, (data));
     }
   }
 }
