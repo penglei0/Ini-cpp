@@ -42,7 +42,6 @@ TEST(IniSettings, write_none_exists_file) {
   EXPECT_EQ(std::filesystem::file_size(none_exists_ini_file), 0);
 
   IniSettings2::GetInstance().SetValue<std::string>("main.key1", "value1");
-  // DumpFileContent(none_exists_ini_file);
   EXPECT_EQ(
       IniSettings2::GetInstance().GetValue<std::string>("main.key1", "default"),
       "value1");
@@ -118,15 +117,6 @@ TEST(IniSettings, write_read_test) {
   EXPECT_EQ(res, "value1");
 }
 
-TEST(IniSettings, abnormal_write_test) {
-  // no section name
-  EXPECT_EQ(MySettings::GetInstance().GetValue<std::string>("key1", "default"),
-            "default");
-  // invalid write
-  MySettings::GetInstance().SetValue<std::string>("key1", "value1");
-  MySettings::GetInstance().DumpFile();
-}
-
 TEST(IniSettings, multithread_rw_test) {
   std::filesystem::remove(IniSettings1::GetInstance().GetFullPath());
   auto& settings = IniSettings1::GetInstance();
@@ -154,7 +144,6 @@ TEST(IniSettings, multithread_rw_test) {
       settings.SetValue<std::string>("string.key1", "value3");
     }
     std::cout << "write_thread done" << std::endl;
-    std::cout << IniSettings1::GetInstance();
     IniSettings1::GetInstance().DumpFile();
     std::cout << "========================== " << std::endl;
   });
@@ -171,11 +160,10 @@ TEST(IniSettings, multithread_rw_test) {
   auto res = settings.GetValue<std::string>("string.key1", "value1");
   EXPECT_TRUE(res == "value3");
 
-  std::filesystem::remove(ini_file_1);
+  std::filesystem::remove(IniSettings1::GetInstance().GetFullPath());
   // it will not use the cache.
   EXPECT_EQ(settings.GetValue<std::string>("string.key1", "delete"), "delete");
 }
-
 TEST(IniSettings, multithread_www_test) {
   auto& settings = MySettings::GetInstance();
   settings.GetValue<std::string>("string.key1", "value1");
@@ -202,11 +190,39 @@ TEST(IniSettings, multithread_www_test) {
   }
 
   auto res = settings.GetValue<std::string>("string.key1", "value1");
-  std::cout << res << std::endl;
   EXPECT_TRUE(res == "value10" || res == "value11" || res == "value12" ||
               res == "value13" || res == "value14" || res == "value15" ||
               res == "value16" || res == "value17" || res == "value18" ||
               res == "value19");
+  MySettings::GetInstance().DumpFile();
+}
+/// @brief Read a non-exist key, it will return the default value; and it's
+/// default value should not be stored.
+/// @param
+/// @param
+TEST(IniSettings, read_default_value_should_not_be_stored) {
+  std::filesystem::remove(IniSettings1::GetInstance().GetFullPath());
+  std::ofstream file(IniSettings1::GetInstance().GetFullPath());
+  if (!file) {
+    EXPECT_FALSE(true);
+  }
+  auto& settings = IniSettings1::GetInstance();
+  EXPECT_EQ(settings.GetValue<std::string>("string.key1", "default_value1"),
+            "default_value1");
+  EXPECT_EQ(settings.GetValue<std::string>("string.key1", "default_value2"),
+            "default_value2");
+  // set
+  settings.SetValue<std::string>("string.key1", "value1");
+  EXPECT_EQ(settings.GetValue<std::string>("string.key1", "value1"), "value1");
+  // std::filesystem::remove(IniSettings1::GetInstance().GetFullPath());
+}
+
+TEST(IniSettings, abnormal_write_test) {
+  // no section name
+  EXPECT_EQ(MySettings::GetInstance().GetValue<std::string>("key1", "default"),
+            "default");
+  // invalid write
+  MySettings::GetInstance().SetValue<std::string>("key1", "value1");
   MySettings::GetInstance().DumpFile();
 }
 
