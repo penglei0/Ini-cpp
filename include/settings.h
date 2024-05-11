@@ -182,6 +182,24 @@ class Settings {
   template <typename T, enable_if_supported_type<T> = 0>
   void SetValue(const std::string& key, T value);
 
+  friend std::ostream& operator<<(std::ostream& os, const Settings& settings) {
+    for (auto& [key, value] : settings.content_tbl_) {
+      os << key << " = " << value << std::endl;
+    }
+    return os;
+  }
+  void DumpFile() {
+    std::ifstream ifs(IniFullPath);
+    if (!ifs.is_open()) {
+      std::cerr << "Failed to open file: " << IniFullPath << std::endl;
+      return;
+    }
+    std::string line;
+    while (std::getline(ifs, line)) {
+      std::cout << line << std::endl;
+    }
+  }
+
  private:
   Settings() = default;
   virtual ~Settings() = default;
@@ -229,7 +247,6 @@ template <const char* IniFullPath>
 template <typename T, typename... Types, enable_if_supported_type<T>>
 T Settings<IniFullPath>::GetValue2(T default_value, const std::string& fmt,
                                    Types&&... args) {
-  // lock ini_rw_mutex_
   std::lock_guard<std::mutex> lock(ini_rw_mutex_);
   if (!std::filesystem::exists(IniFullPath)) {
     return default_value;
@@ -289,7 +306,7 @@ void Settings<IniFullPath>::SetValue(const std::string& key, T value) {
       std::cout << "Create directory: " << ini_parent_path << std::endl;
       if (!std::filesystem::create_directories(ini_parent_path)) {
         // maybe permission denied
-        throw std::runtime_error("File create failed");
+        throw std::runtime_error("Path create failed");
       }
     }
     auto create_ini_file = [](const std::string& ini_path) -> bool {
@@ -316,13 +333,16 @@ void Settings<IniFullPath>::SetValue(const std::string& key, T value) {
     }
   }
 
-  std::stringstream ss;
   std::string value_string;
-  ss << value;
-  ss >> value_string;
+  if constexpr (!std::is_same<typename std::decay<T>::type,
+                              std::string>::value) {
+    value_string = std::to_string(value);
+  } else {
+    value_string = value;
+  }
+
   // insert or update
   content_tbl_.insert_or_assign(key, value_string);
-
   if (!StoreContentTbl()) {
     std::string err_msg = IniFullPath;
     err_msg += " write failed, maybe permission denied.";
