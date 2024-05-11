@@ -181,7 +181,6 @@ class Settings {
    */
   template <typename T, enable_if_supported_type<T> = 0>
   void SetValue(const std::string& key, T value);
-  int LoadedCnt() const { return loaded_cnt_; }
 
  private:
   Settings() = default;
@@ -198,7 +197,6 @@ class Settings {
   StrStrMap content_tbl_;
   std::filesystem::file_time_type last_write_time_;
   // stored in memory, and write back to the ini file when SetValue is called.
-  int loaded_cnt_ = 0;
 };
 
 template <const char* IniFullPath>
@@ -209,9 +207,9 @@ bool Settings<IniFullPath>::LoadContentTbl() {
     return false;
   }
   stream.imbue(std::locale());
+  content_tbl_.clear();
   // Read all the key-value pairs from the ini file
   ReadIni(stream, content_tbl_);
-  loaded_cnt_++;
   return true;
 }
 
@@ -223,6 +221,7 @@ bool Settings<IniFullPath>::StoreContentTbl() {
   }
   stream.imbue(std::locale());
   WriteIni(stream, content_tbl_);
+  last_write_time_ = std::filesystem::last_write_time(IniFullPath);
   return true;
 }
 
@@ -329,7 +328,6 @@ void Settings<IniFullPath>::SetValue(const std::string& key, T value) {
     err_msg += " write failed, maybe permission denied.";
     throw std::runtime_error(err_msg);
   }
-  last_write_time_ = std::filesystem::last_write_time(IniFullPath);
 }
 /**
  * @brief Write the `ini_content_tbl` to the `stream`.
