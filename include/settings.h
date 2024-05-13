@@ -212,15 +212,16 @@ class Settings {
   // ***********  implementation ***********
   bool LoadContentTbl();
   bool StoreContentTbl();
-  void WriteIni(std::basic_ostream<char>& stream,
-                const StrStrMap& ini_content_tbl);
-  void ReadIni(std::basic_istream<char>& stream, StrStrMap& ini_content_tbl);
   // protect read/write
   std::mutex ini_rw_mutex_;
   StrStrMap content_tbl_;
   std::filesystem::file_time_type last_write_time_;
   // stored in memory, and write back to the ini file when SetValue is called.
 };
+
+void WriteIni(std::basic_ostream<char>& stream,
+              const StrStrMap& ini_content_tbl);
+void ReadIni(std::basic_istream<char>& stream, StrStrMap& ini_content_tbl);
 
 template <const char* IniFullPath>
 bool Settings<IniFullPath>::LoadContentTbl() {
@@ -367,9 +368,8 @@ void Settings<IniFullPath>::SetValue(const std::string& key, const T& value) {
  * @param stream
  * @param ini_content_tbl The key-value tables to be written to ini files.
  */
-template <const char* IniFullPath>
-void Settings<IniFullPath>::WriteIni(std::basic_ostream<char>& stream,
-                                     const StrStrMap& ini_content_tbl) {
+void WriteIni(std::basic_ostream<char>& stream,
+              const StrStrMap& ini_content_tbl) {
   std::set<std::string> sec_name_set;
   for (auto& [combined_key, value] : ini_content_tbl) {
     if (value.empty()) {
@@ -409,9 +409,7 @@ void Settings<IniFullPath>::WriteIni(std::basic_ostream<char>& stream,
  * @param stream
  * @param ini_content_tbl
  */
-template <const char* IniFullPath>
-void Settings<IniFullPath>::ReadIni(std::basic_istream<char>& stream,
-                                    StrStrMap& ini_content_tbl) {
+void ReadIni(std::basic_istream<char>& stream, StrStrMap& ini_content_tbl) {
   typedef std::basic_string<Ch> Str;
   const Ch semicolon = stream.widen(';');
   const Ch hash = stream.widen('#');
