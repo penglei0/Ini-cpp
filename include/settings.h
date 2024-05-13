@@ -138,7 +138,10 @@ class Settings {
   // Tear down the singleton
   static void DestroyInstance() {
     Settings* ins = &GetInstance();
-    delete ins;
+    if (!ins) {
+      static std::once_flag release_flag;
+      std::call_once(release_flag, [&]() { delete ins; });
+    }
   }
   // disable copy and move
   Settings(Settings const&) = delete;
