@@ -282,6 +282,45 @@ TEST_F(IniSettingsTest, read_exist_file) {
             true);
 }
 
+const char network_ini_content[] = R"(
+[network]
+routes.cnt = 2
+routes.item0.src = 172.23.1.1
+routes.item0.dst = 172.23.1.2
+routes.item0.mask = 255.255.255.255
+routes.item0.gw = 172.23.1.2
+routes.item0.metric = 1
+
+routes.item1.src = 172.23.1.1
+routes.item1.dst = 172.23.1.3
+routes.item1.mask = 255.255.255.255
+routes.item1.gw = 172.23.1.2
+routes.item1.metric = 1
+)";
+
+TEST_F(IniSettingsTest, read_network_config) {
+  WriteIniFileContent(network_ini_content);
+  auto& settings = TestIniSettings::GetInstance();
+  auto count = settings.GetValue<int>("network.routes.cnt", 0);
+  for (int i = 0; i < count; i++) {
+    auto src =
+        settings.GetValue2<std::string>("", "network.routes.item%d.src", i);
+    auto dest =
+        settings.GetValue2<std::string>("", "network.routes.item%d.dst", i);
+    auto mask =
+        settings.GetValue2<std::string>("", "network.routes.item%d.mask", i);
+    auto gw =
+        settings.GetValue2<std::string>("", "network.routes.item%d.gw", i);
+    auto metric =
+        settings.GetValue2<std::string>("", "routes.item%d.metric", i);
+    if (dest.empty()) {
+      EXPECT_FALSE(true);
+    }
+    std::cout << "Add route to " << dest << " netmask " << mask << " via " << gw
+              << " src " << src << " metric " << metric << std::endl;
+  }
+}
+
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
