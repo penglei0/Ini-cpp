@@ -222,9 +222,10 @@ class Settings {
   // stored in memory, and write back to the ini file when SetValue is called.
 };
 
-void WriteIni(std::basic_ostream<char>& stream,
-              const StrStrMap& ini_content_tbl);
-void ReadIni(std::basic_istream<char>& stream, StrStrMap& ini_content_tbl);
+static inline void WriteIni(std::basic_ostream<char>& stream,
+                            const StrStrMap& ini_content_tbl);
+static inline void ReadIni(std::basic_istream<char>& stream,
+                           StrStrMap& ini_content_tbl);
 
 template <const char* IniFullPath>
 bool Settings<IniFullPath>::LoadContentTbl() {
