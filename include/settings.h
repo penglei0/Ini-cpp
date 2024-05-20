@@ -10,7 +10,15 @@
 #define INCLUDE_SETTINGS_H_
 
 #include <cstdarg>
+#if __has_include(<filesystem>)
 #include <filesystem>
+namespace std_fs = std::filesystem;
+#elif __has_include(<experimental/filesystem>)
+#include <experimental/filesystem>
+namespace std_fs = std::experimental::filesystem;
+#else
+error "Missing the <filesystem> header."
+#endif
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -218,7 +226,7 @@ class Settings {
   // protect read/write
   std::mutex ini_rw_mutex_;
   StrStrMap content_tbl_;
-  std::filesystem::file_time_type last_write_time_;
+  std_fs::file_time_type last_write_time_;
   // stored in memory, and write back to the ini file when SetValue is called.
 };
 
@@ -249,7 +257,7 @@ bool Settings<IniFullPath>::StoreContentTbl() {
   }
   stream.imbue(std::locale());
   WriteIni(stream, content_tbl_);
-  last_write_time_ = std::filesystem::last_write_time(IniFullPath);
+  last_write_time_ = std_fs::last_write_time(IniFullPath);
   return true;
 }
 
@@ -258,7 +266,7 @@ template <typename T, typename... Types, enable_if_supported_type<T>>
 T Settings<IniFullPath>::GetValue2(const T& default_value,
                                    const std::string& fmt, Types&&... args) {
   std::lock_guard<std::mutex> lock(ini_rw_mutex_);
-  if (!std::filesystem::exists(IniFullPath)) {
+  if (!std_fs::exists(IniFullPath)) {
     return default_value;
   }
 
@@ -274,13 +282,13 @@ T Settings<IniFullPath>::GetValue2(const T& default_value,
   std::string key = formatString(fmt, std::forward<Types>(args)...);
 
   // no updates, use the memory content_tbl_
-  if (last_write_time_ != std::filesystem::last_write_time(IniFullPath)) {
+  if (last_write_time_ != std_fs::last_write_time(IniFullPath)) {
     if (!LoadContentTbl()) {
       std::string err_msg = IniFullPath;
       err_msg += " open failed, maybe permission denied.";
       throw std::runtime_error(err_msg);
     }
-    last_write_time_ = std::filesystem::last_write_time(IniFullPath);
+    last_write_time_ = std_fs::last_write_time(IniFullPath);
   }
   if (content_tbl_.find(key) == content_tbl_.end()) {
     return default_value;
@@ -292,17 +300,17 @@ template <const char* IniFullPath>
 template <typename T, enable_if_supported_type<T>>
 T Settings<IniFullPath>::GetValue(const std::string& key, T default_value) {
   std::lock_guard<std::mutex> lock(ini_rw_mutex_);
-  if (!std::filesystem::exists(IniFullPath)) {
+  if (!std_fs::exists(IniFullPath)) {
     return default_value;
   }
   // no updates, use the memory content_tbl_
-  if (last_write_time_ != std::filesystem::last_write_time(IniFullPath)) {
+  if (last_write_time_ != std_fs::last_write_time(IniFullPath)) {
     if (!LoadContentTbl()) {
       std::string err_msg = IniFullPath;
       err_msg += " open failed, maybe permission denied.";
       throw std::runtime_error(err_msg);
     }
-    last_write_time_ = std::filesystem::last_write_time(IniFullPath);
+    last_write_time_ = std_fs::last_write_time(IniFullPath);
   }
   if (content_tbl_.find(key) == content_tbl_.end()) {
     return default_value;
@@ -314,13 +322,13 @@ template <const char* IniFullPath>
 template <typename T, enable_if_supported_type<T>>
 void Settings<IniFullPath>::SetValue(const std::string& key, const T& value) {
   std::lock_guard<std::mutex> lock(ini_rw_mutex_);
-  if (!std::filesystem::exists(IniFullPath)) {
+  if (!std_fs::exists(IniFullPath)) {
     std::cout << IniFullPath << " doesn't exist, create a new one."
               << std::endl;
-    auto ini_parent_path = std::filesystem::path(IniFullPath).parent_path();
-    if (!std::filesystem::exists(ini_parent_path)) {
+    auto ini_parent_path = std_fs::path(IniFullPath).parent_path();
+    if (!std_fs::exists(ini_parent_path)) {
       std::cout << "Create directory: " << ini_parent_path << std::endl;
-      if (!std::filesystem::create_directories(ini_parent_path)) {
+      if (!std_fs::create_directories(ini_parent_path)) {
         // maybe permission denied
         throw std::runtime_error("Path create failed");
       }
@@ -337,11 +345,11 @@ void Settings<IniFullPath>::SetValue(const std::string& key, const T& value) {
       throw std::runtime_error("File create failed");
     }
     std::cout << "Create regular file: " << IniFullPath << std::endl;
-    last_write_time_ = std::filesystem::last_write_time(IniFullPath);
+    last_write_time_ = std_fs::last_write_time(IniFullPath);
   }
 
   // load before write
-  if (last_write_time_ != std::filesystem::last_write_time(IniFullPath)) {
+  if (last_write_time_ != std_fs::last_write_time(IniFullPath)) {
     if (!LoadContentTbl()) {
       std::string err_msg = IniFullPath;
       err_msg += " open failed, maybe permission denied.";
