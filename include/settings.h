@@ -192,19 +192,19 @@ class Settings {
 
   friend std::ostream& operator<<(std::ostream& os, const Settings& settings) {
     for (auto& [key, value] : settings.content_tbl_) {
-      os << "*" << key << " = " << value << std::endl;
+      os << "*" << key << " = " << value << "\n";
     }
     return os;
   }
   void DumpFile() {
     std::ifstream ifs(IniFullPath);
     if (!ifs.is_open()) {
-      std::cerr << "Failed to open file: " << IniFullPath << std::endl;
+      std::cerr << "Failed to open file: " << IniFullPath << "\n";
       return;
     }
     std::string line;
     while (std::getline(ifs, line)) {
-      std::cout << line << std::endl;
+      std::cout << line << "\n";
     }
   }
 
@@ -262,13 +262,13 @@ T Settings<IniFullPath>::GetValue2(const T& default_value,
     return default_value;
   }
 
-  auto formatString = [](const std::string& __fmt, auto&&... __args) {
-    size_t args_size = snprintf(nullptr, 0, __fmt.c_str(),
-                                std::forward<decltype(__args)>(__args)...) +
+  auto formatString = [](const std::string& loc_fmt, auto&&... loc_args) {
+    size_t args_size = snprintf(nullptr, 0, loc_fmt.c_str(),
+                                std::forward<decltype(loc_args)>(loc_args)...) +
                        1;
     std::unique_ptr<char[]> args_buf(new char[args_size]);
-    snprintf(args_buf.get(), args_size, __fmt.c_str(),
-             std::forward<decltype(__args)>(__args)...);
+    snprintf(args_buf.get(), args_size, loc_fmt.c_str(),
+             std::forward<decltype(loc_args)>(loc_args)...);
     return std::string(args_buf.get(), args_buf.get() + args_size - 1);
   };
   std::string key = formatString(fmt, std::forward<Types>(args)...);
@@ -316,10 +316,10 @@ void Settings<IniFullPath>::SetValue(const std::string& key, const T& value) {
   std::lock_guard<std::mutex> lock(ini_rw_mutex_);
   if (!std::filesystem::exists(IniFullPath)) {
     std::cout << IniFullPath << " doesn't exist, create a new one."
-              << std::endl;
+              << "\n";
     auto ini_parent_path = std::filesystem::path(IniFullPath).parent_path();
     if (!std::filesystem::exists(ini_parent_path)) {
-      std::cout << "Create directory: " << ini_parent_path << std::endl;
+      std::cout << "Create directory: " << ini_parent_path << "\n";
       if (!std::filesystem::create_directories(ini_parent_path)) {
         // maybe permission denied
         throw std::runtime_error("Path create failed");
@@ -336,7 +336,7 @@ void Settings<IniFullPath>::SetValue(const std::string& key, const T& value) {
       // maybe permission denied
       throw std::runtime_error("File create failed");
     }
-    std::cout << "Create regular file: " << IniFullPath << std::endl;
+    std::cout << "Create regular file: " << IniFullPath << "\n";
     last_write_time_ = std::filesystem::last_write_time(IniFullPath);
   }
 
@@ -383,15 +383,17 @@ void WriteIni(std::basic_ostream<char>& stream,
     auto combined_key_vec = Split(combined_key, ".");
     if (combined_key_vec.size() < 2) {
       // no section or key: invalid data
-      // std::cerr << "Invalid data: " << combined_key << std::endl;
+      // std::cerr << "Invalid data: " << combined_key << "\n";
       break;
     }
     auto& section_name = combined_key_vec[0];
     if (sec_name_set.find(section_name) == sec_name_set.end()) {
       if (sec_name_set.empty()) {
-        stream << Ch('[') << section_name << Ch(']') << Ch('\n');
+        stream << static_cast<Ch>('[') << section_name << static_cast<Ch>(']')
+               << static_cast<Ch>('\n');
       } else {
-        stream << Ch('\n') << Ch('[') << section_name << Ch(']') << Ch('\n');
+        stream << static_cast<Ch>('\n') << static_cast<Ch>('[') << section_name
+               << static_cast<Ch>(']') << static_cast<Ch>('\n');
       }
       sec_name_set.insert(section_name);
     }
@@ -402,7 +404,7 @@ void WriteIni(std::basic_ostream<char>& stream,
       }
       key += combined_key_vec[i];
     }
-    stream << key << Ch('=') << value << Ch('\n');
+    stream << key << static_cast<Ch>('=') << value << static_cast<Ch>('\n');
   }
 }
 /**
@@ -445,33 +447,36 @@ void ReadIni(std::basic_istream<char>& stream, StrStrMap& ini_content_tbl) {
     if (line[0] == lbracket) {
       typename Str::size_type end = line.find(rbracket);
       if (end == Str::npos) {
-        std::cerr << "Unmatched '[' " << std::endl;
+        std::cerr << "Unmatched '[' "
+                  << "\n";
         continue;
       }
       Str key = Trim(line.substr(1, end - 1), stream.getloc());
       section = (key);
       if (ini_content_tbl.find(section) != ini_content_tbl.end()) {
-        std::cerr << "Duplicated section name " << section << std::endl;
+        std::cerr << "Duplicated section name " << section << "\n";
       }
     } else {
       if (section.empty()) {
-        // std::cout << " unmatched section " << std::endl;
+        // std::cout << " unmatched section " << "\n";
         continue;
       }
-      typename Str::size_type eq_pos = line.find(Ch('='));
+      typename Str::size_type eq_pos = line.find(static_cast<Ch>('='));
       if (eq_pos == Str::npos) {
-        std::cerr << "Unmatched '=' " << std::endl;
+        std::cerr << "Unmatched '=' "
+                  << "\n";
         continue;
       }
       if (eq_pos == 0) {
-        std::cerr << "Unmatched key " << std::endl;
+        std::cerr << "Unmatched key "
+                  << "\n";
         continue;
       }
       Str key = Trim(line.substr(0, eq_pos), stream.getloc());
       Str data = Trim(line.substr(eq_pos + 1, Str::npos), stream.getloc());
       std::string combined_key = section + std::string(".") + std::string(key);
       if (ini_content_tbl.find(combined_key) != ini_content_tbl.end()) {
-        std::cerr << "Duplicated key name " << combined_key << std::endl;
+        std::cerr << "Duplicated key name " << combined_key << "\n";
       }
       ini_content_tbl.insert_or_assign(combined_key, (data));
     }

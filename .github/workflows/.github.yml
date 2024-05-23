@@ -32,6 +32,22 @@ jobs:
           else
             echo "No source files changed!"
           fi
+      - name: clang-tidy
+        working-directory: ${{github.workspace}}/
+        run: |
+          apt-get install clang-tidy-18
+          if [ ! -f /usr/lib/llvm-18/bin/clang-tidy ]
+          then
+            echo "clang-tidy-18 not found!"
+            exit 1
+          fi
+          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+          warnings=$(/usr/lib/llvm-18/bin/clang-tidy -p=./build/compile_commands.json --format-style=.clang-tidy --store-check-profile=. include/settings.h | grep ': warning:' |wc -l)
+          if [ $warnings -gt 0 ]
+          then
+            echo "clang-tidy found warnings!"
+            exit 1
+          fi
 
   build-asan-test:
     needs: style-check
