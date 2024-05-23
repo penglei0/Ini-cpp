@@ -1,9 +1,11 @@
 {
-    "[cpp]": {
-        "editor.defaultFormatter": "xaver.clang-format",
-        "editor.formatOnSave": true
-    },
-    "clang-format.executable": "/usr/bin/clang-format",
-    "clang-format.fallbackStyle": "Google",
-    "clang-format.style": "Google"
+  "[cpp]": {
+    "editor.defaultFormatter": "xaver.clang-format",
+    "editor.formatOnSave": true
+  },
+  "clang-format.executable": "/usr/bin/clang-format",
+  "clang-format.fallbackStyle": "Google",
+  "clang-format.style": "Google",
+  "clang-tidy.buildPath": "build/compile_commands.json",
+  "clang-tidy.executable": "/usr/bin/clang-tidy"
 }
