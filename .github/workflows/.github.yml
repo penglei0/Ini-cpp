@@ -18,12 +18,12 @@ env:
   BUILD_TYPE: Release
 
 jobs:
-  style-check:
+  code-analysis:
     runs-on: ubuntu-latest
     permissions: read-all
     steps:
       - uses: actions/checkout@v4
-      - name: Check code formatting
+      - name: format check
         run: |
           files=$(git diff --name-only -r HEAD^1 HEAD | grep 'src\/' | grep -E '\.(cc|h)$' | sed "s/^/${workspace_path}\//" | tr '\n' ' ')
           if [ ! -z "$files" ]
@@ -32,10 +32,14 @@ jobs:
           else
             echo "No source files changed!"
           fi
-      - name: clang-tidy
+      - name: clang-tidy check
         working-directory: ${{github.workspace}}/
         run: |
-          apt-get install clang-tidy-18
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" | sudo tee -a /etc/apt/sources.list
+          echo "deb-src http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" | sudo tee -a /etc/apt/sources.list
+          sudo apt-get update
+          sudo apt-get install clang-tidy-18
           if [ ! -f /usr/lib/llvm-18/bin/clang-tidy ]
           then
             echo "clang-tidy-18 not found!"
@@ -50,7 +54,7 @@ jobs:
           fi
 
   build-asan-test:
-    needs: style-check
+    needs: code-analysis
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
