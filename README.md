@@ -9,7 +9,7 @@
 
 # Introduction
 
-This is a header only implementation of the ini file parser in modern C++.
+This is a header only implementation of the ini file parser with modern C++.
 
 ## Build test
 
