@@ -237,8 +237,7 @@ static inline void ReadIni(std::basic_istream<char>& stream,
 
 template <const char* IniFullPath>
 bool Settings<IniFullPath>::LoadContentTbl() {
-  std::basic_ifstream<char> stream(IniFullPath,
-                                   std::ios_base::out | std::ios_base::app);
+  std::basic_ifstream<char> stream(IniFullPath, std::ios_base::in);
   if (!stream) {
     return false;
   }
