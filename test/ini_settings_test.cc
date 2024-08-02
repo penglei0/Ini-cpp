@@ -321,6 +321,34 @@ TEST_F(IniSettingsTest, read_network_config) {
   }
 }
 
+const char network_ini_content_with_comment[] = R"(
+[network]
+# TUN realted parameters. If not set here, the default configurations will be used.
+# Note: These settings take effect when the BATS protocol is run with '--tun_enabled=true'.
+tun.name = tun1 ##### Name of the tun device created by the BATS protocol.
+tun.ip = 1.0.0.1 ; IP address assigned to the tun device created by the BATS protocol.
+tun.netmask = 255.255.255.255 ;# Netmask ###;;; of the tun device created by the BATS protocol.
+tun.mtu = 1500 #; MTU of ;;## the tun device created by the BATS protocol.
+)";
+
+TEST_F(IniSettingsTest, read_network_config_with_comment) {
+  WriteIniFileContent(network_ini_content_with_comment);
+  auto& settings = TestIniSettings::GetInstance();
+  auto tun_name = settings.GetValue<std::string>("network.tun.name", "");
+  auto tun_ip = settings.GetValue<std::string>("network.tun.ip", "");
+  auto tun_netmask = settings.GetValue<std::string>("network.tun.netmask", "");
+  auto tun_mtu = settings.GetValue<std::string>("network.tun.mtu", "");
+  EXPECT_EQ(tun_name, "tun1");
+  EXPECT_EQ(tun_ip, "1.0.0.1");
+  EXPECT_EQ(tun_netmask, "255.255.255.255");
+  EXPECT_EQ(tun_mtu, "1500");
+  std::cout << "TUN name: " << tun_name << ", tun ip: " << tun_ip
+            << ", tun netmask: " << tun_netmask << ", tun mtu: " << tun_mtu
+            << std::endl;
+  std::cout << "fullpath: " << TestIniSettings::GetInstance().GetFullPath()
+            << std::endl;
+}
+
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
