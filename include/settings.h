@@ -480,7 +480,13 @@ void ReadIni(std::basic_istream<char>& stream, StrStrMap& ini_content_tbl) {
         continue;
       }
       Str key = Trim(line.substr(0, eq_pos), stream.getloc());
-      Str data = Trim(line.substr(eq_pos + 1, Str::npos), stream.getloc());
+      Str data = line.substr(eq_pos + 1, Str::npos);
+      auto pos = data.find_first_of(";#");
+      if (pos != Str::npos) {
+        data = Trim(data.substr(0, pos), stream.getloc());
+      } else {
+        data = Trim(data, stream.getloc());
+      }
       std::string combined_key = section + std::string(".") + std::string(key);
       if (ini_content_tbl.find(combined_key) != ini_content_tbl.end()) {
         std::cerr << "Duplicated key name " << combined_key << "\n";
